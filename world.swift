@@ -73,18 +73,48 @@ func coordGen(rho_scaling: Double) -> (Double, Double, Double){
 class CargoSpace{
     var capacity: Double = 0
 
-    var minerals: Double = 0
-    var gas: Double = 0
-    var precious: Double = 0
-    var fuel: Double = 0
-    var miningDrone: Double = 0
-    var spaceShip: Double = 0
-    var spaceStation: Double = 0
-    var factory: Double = 0
-    var refinery: Double = 0
+    var minerals: Double = 0 // minerals are used for building ships, stations and heavy machinery
+    var gas: Double = 0 // gas is used for fuel, life support and synthetic materials
+    var precious: Double = 0 // precious elements are used in electronics and high tech equipment
+    var fuel: Double = 0 // used for spaceship propulsion
+    var lifeSupport: Double = 0 // keeps living things alive
+    var miningDrone: Double = 0 // used to harvest resources from asteroids, planets and moons
+    var spareParts: Double = 0 // used to repair all kinds of things
+    var weapons: Double = 0 // used to destroy all kinds of things
+    var spaceShip: Double = 0 // can fly around in space and carry stuff
+    var spaceStation: Double = 0 // conventient place to process resources and build things
+    var factory: Double = 0 // turns resources into everything except fuel and life support
+    var refinery: Double = 0 // turns gas into fuel and life support
 
     init(capacity: Double){
         self.capacity = capacity
+    }
+
+    func remainingCapacity() -> Double{
+        var counter = capacity
+
+        for variable in [
+            self.minerals,
+            self.gas,
+            self.precious,
+            self.lifeSupport,
+            self.miningDrone,
+            self.spareParts,
+            self.weapons,
+            self.spaceShip,
+            self.spaceStation,
+            self.factory,
+            self.refinery] {
+            if(variable < 0) {
+                print("!!! negative value of \(variable) detected in cargo space!")
+            } else {
+                counter -= variable
+            }
+        }
+        if(counter < 0){
+            print("!!! cargo space overflow! \(counter) remaining of \(self.capacity) capacity!")
+        }
+        return counter
     }
 }
 
@@ -101,9 +131,6 @@ class Ship{
         self.id = id
         self.owner = owner
         self.cargo = CargoSpace(capacity: size)
-    }
-
-    func proceduralInit(){
     }
 }
 
@@ -203,13 +230,13 @@ class Moon{
         if type % 5 < 2{
             gas = Double(random()) / Double(RAND_MAX)
         }
-        if type % 16 == 0{
+        if type % 2 == 0{
             precious = Double(random()) / Double(RAND_MAX)
         }
 
         minerals = minerals * 1e4
         gas = gas * 1e4
-        precious = precious * 1e3
+        precious = precious * 1e2
     }
 }
 
@@ -254,17 +281,15 @@ class Planet{
         let type = random()
         if type % 5 > 3{
             minerals = Double(random()) / Double(RAND_MAX)
+            precious = Double(random()) / Double(RAND_MAX)
         }
         if type % 5 <= 3{
             gas = Double(random()) / Double(RAND_MAX)
         }
-        if type % 16 == 0{
-            precious = Double(random()) / Double(RAND_MAX)
-        }
 
         minerals = minerals * 1e5
         gas = gas * 1e5
-        precious = precious * 1e3
+        precious = precious * 1e2
     }
 }
 
