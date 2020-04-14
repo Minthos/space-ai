@@ -21,7 +21,8 @@ let configString = """
     "maxSystems": 5,
     "maxPlanets": 40,
     "maxMoons": 100,
-    "maxAsteroids": 1000000
+    "maxAsteroids": 1000000,
+    "stationDefaultCapacity": 1000
 }
 """
 class Config: Decodable{
@@ -31,6 +32,7 @@ class Config: Decodable{
     let maxPlanets: Int
     let maxMoons: Int
     let maxAsteroids: Int
+    let stationDefaultCapacity: Double
 }
 print("reading config")
 let config = try!JSONDecoder().decode(Config.self, from:configString.data(using: .utf8)!)
@@ -68,33 +70,62 @@ func coordGen(rho_scaling: Double) -> (Double, Double, Double){
 
 ////////////////////////////// CLASSES ////////////////////////////////////////
 
+class CargoSpace{
+    var capacity: Double = 0
+
+    var minerals: Double = 0
+    var gas: Double = 0
+    var precious: Double = 0
+    var fuel: Double = 0
+    var miningDrone: Double = 0
+    var spaceShip: Double = 0
+    var spaceStation: Double = 0
+    var factory: Double = 0
+    var refinery: Double = 0
+
+    init(capacity: Double){
+        self.capacity = capacity
+    }
+}
+
 class Ship{
     let id: Int!
+    let cargo: CargoSpace
+    var owner: String
 
     var rho: Double = 0
     var theta: Double = 0
     var phi: Double = 0
 
-    init(seed: Int, id: Int){
+    init(id: Int, owner: String, size: Double){
         self.id = id
+        self.owner = owner
+        self.cargo = CargoSpace(capacity: size)
     }
 
-    func postInit(){
+    func proceduralInit(){
     }
 }
 
 class Station{
     let id: Int!
+    let hold: CargoSpace
+    var owner: String = ""
 
     var rho: Double = 0
     var theta: Double = 0
     var phi: Double = 0
 
+    var minerals: Double = 0
+    var gas: Double = 0
+    var precious: Double = 0
+
     init(seed: Int, id: Int){
         self.id = id
+        self.hold = CargoSpace(capacity: config.stationDefaultCapacity)
     }
 
-    func postInit(){
+    func proceduralInit(){
         print("Space Station!")
         (self.rho, self.theta, self.phi) = coordGen(rho_scaling: 1e6 * KM)
     }
@@ -117,7 +148,7 @@ class Asteroid{
         self.id = id
     }
 
-    func postInit(){
+    func proceduralInit(){
         srandom(UInt32(self.randomSeed))
         
         (self.rho, self.theta, self.phi) = coordGen(rho_scaling: 100 * AU)
@@ -142,6 +173,10 @@ class Moon{
     var rho: Double = 0
     var theta: Double = 0
     var phi: Double = 0
+    
+    var minerals: Double = 0
+    var gas: Double = 0
+    var precious: Double = 0
 
     var stations = [Station]()
 
@@ -150,7 +185,7 @@ class Moon{
         self.id = id
     }
 
-    func postInit(){
+    func proceduralInit(){
         srandom(UInt32(self.randomSeed))
         (self.rho, self.theta, self.phi) = coordGen(rho_scaling: 1e8 * KM)
         let numStations = random() % 100 == 0 ? 1 : 0
@@ -158,9 +193,23 @@ class Moon{
             stations.append(Station(seed: random(), id:i))
         }
         for i in 0..<numStations{
-            stations[i].postInit()
+            stations[i].proceduralInit()
         }
 
+        let type = random()
+        if type % 5 > 0{
+            minerals = Double(random()) / Double(RAND_MAX)
+        }
+        if type % 5 < 2{
+            gas = Double(random()) / Double(RAND_MAX)
+        }
+        if type % 16 == 0{
+            precious = Double(random()) / Double(RAND_MAX)
+        }
+
+        minerals = minerals * 1e4
+        gas = gas * 1e4
+        precious = precious * 1e3
     }
 }
 
@@ -172,6 +221,10 @@ class Planet{
     var theta: Double = 0
     var phi: Double = 0
     
+    var minerals: Double = 0
+    var gas: Double = 0
+    var precious: Double = 0
+    
     var moons = [Moon]()
     var stations = [Station]()
 
@@ -180,7 +233,7 @@ class Planet{
         self.id = id
     }
 
-    func postInit(){
+    func proceduralInit(){
         srandom(UInt32(self.randomSeed))
         (self.rho, self.theta, self.phi) = coordGen(rho_scaling: 20 * AU)
         let numMoons = moonQtyGen(max_: config.maxMoons, min_:0)
@@ -192,12 +245,26 @@ class Planet{
             stations.append(Station(seed: random(), id:i))
         }
         for i in 0..<numMoons{
-            moons[i].postInit()
+            moons[i].proceduralInit()
         }
         for i in 0..<numStations{
-            stations[i].postInit()
+            stations[i].proceduralInit()
         }
 
+        let type = random()
+        if type % 5 > 3{
+            minerals = Double(random()) / Double(RAND_MAX)
+        }
+        if type % 5 <= 3{
+            gas = Double(random()) / Double(RAND_MAX)
+        }
+        if type % 16 == 0{
+            precious = Double(random()) / Double(RAND_MAX)
+        }
+
+        minerals = minerals * 1e5
+        gas = gas * 1e5
+        precious = precious * 1e3
     }
 }
 
@@ -217,7 +284,7 @@ class System{
         self.id = id
     }
 
-    func postInit(){
+    func proceduralInit(){
         print("system \(self.id)")
         srandom(UInt32(self.randomSeed))
         (self.rho, self.theta, self.phi) = coordGen(rho_scaling: 1.0e6 * PARSEC)
@@ -230,10 +297,10 @@ class System{
             asteroids.append(Asteroid(seed: random(), id:i))
         }
         for i in 0..<numPlanets{
-            planets[i].postInit()
+            planets[i].proceduralInit()
         }
         for i in 0..<numAsteroids{
-            asteroids[i].postInit()
+            asteroids[i].proceduralInit()
         }
     }
 }
@@ -253,7 +320,7 @@ class Galaxy{
         self.id = id
     }
 
-    func postInit(){
+    func proceduralInit(){
         srandom(UInt32(self.randomSeed))
         (self.rho, self.theta, self.phi) = coordGen(rho_scaling: 1.4e9 * PARSEC)
         //let numSystems = genericQtyGen(max_: config.maxSystems, min_:1)
@@ -264,7 +331,7 @@ class Galaxy{
         }
         print("configuring systems")
         for i in 0..<numSystems{
-            systems[i].postInit()
+            systems[i].proceduralInit()
         }
         print("\(numSystems) systems ready")
     }
@@ -278,7 +345,7 @@ class Universe{
         self.randomSeed = seed
     }
 
-    func postInit(){
+    func proceduralInit(){
         srandom(UInt32(self.randomSeed))
         let numGalaxies = config.numGalaxies
         print("spawning \(numGalaxies) galaxies")
@@ -287,7 +354,7 @@ class Universe{
         }
         print("configuring \(numGalaxies) galaxies")
         for i in 0..<numGalaxies{
-            self.galaxies[i].postInit()
+            self.galaxies[i].proceduralInit()
         }
         print("\(numGalaxies) galaxies ready")
     }
@@ -305,7 +372,7 @@ if(CommandLine.arguments.count > 1){
 }
 print("initializing world with seed: \(seed) at time: \(Date()) ");
 let world = Universe(seed: seed)
-world.postInit()
+world.proceduralInit()
 
 ////////////////////////////// RUNLOOP ///////////////////////////////////////
 
