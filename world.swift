@@ -34,7 +34,6 @@ class Config: Decodable{
     let maxAsteroids: Int
     let stationDefaultCapacity: Double
 }
-print("reading config")
 let config = try!JSONDecoder().decode(Config.self, from:configString.data(using: .utf8)!)
 
 func planetQtyGen(max_: Int, min_: Int) -> Int{
@@ -405,37 +404,4 @@ class Universe{
         return galaxies.flatMap{ $0.systems.flatMap{ $0.planets.flatMap{ $0.stations + $0.moons.flatMap{ $0.stations } } } }
     }
 }
-
-////////////////////////////// INITIALIZATION /////////////////////////////////
-
-var seed = config.randomSeed
-if(CommandLine.arguments.count > 1){
-    seed = Int(CommandLine.arguments[1]) ?? config.randomSeed
-}
-print("initializing world with seed: \(seed) at time: \(Date()) ");
-let world = Universe(seed: seed)
-world.proceduralInit()
-
-
-////////////////////////////// TEST SETUP /////////////////////////////////////
-
-print("--- * * * * * * * ---")
-let stations = world.allStations()
-print("\(stations.count) stations")
-
-var ships: [Int: Ship] = [:]
-for system in world.allSystems(){
-    for station in system.stations(){
-        let ship = Ship(owner: "test", size: 10)
-        ships[ship.id] = ship
-        print("spawned ship with id \(ship.id) at station with id \(station.id)")
-    }
-}
-
-////////////////////////////// RUNLOOP ////////////////////////////////////////
-
-//while true {
-//    print("zzz...")
-//    sleep(1);
-//}
 
