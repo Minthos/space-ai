@@ -139,7 +139,7 @@ class HctTree{
         }
 
         if !dims.contains(position){
-            // TODO: panic! just kidding.. add more levels of the tree
+            // TODO: panic! just kidding.. just make the tree deeper
             dims.expandTo(position)
             dims.potimize()
         }
