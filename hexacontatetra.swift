@@ -6,16 +6,7 @@
 
 import Foundation
 
-
-
 class HctNode{
-    static var lookupTable = [Int](repeating: 0, count: 256)
-    static func initialize() {
-        for i in 0..<256{
-            lookupTable[i] = (i & 1) + lookupTable[i / 2];
-        }
-    }
-
     var bit_field: UInt64 = 0
     var children: [HctNode] = []
     var data: [AnyObject] = []
@@ -23,21 +14,41 @@ class HctNode{
     func insert(item: AnyObject, location: (Double, Double, Double)){
         // how to convert location to spatial tree index?
     }
-/* // Swift can't typecheck this damn thing
-    func count_bits_lookup_table() -> Int{
-        let v = bit_field
-        var c = lookupTable[v & 0xff] + 
-            lookupTable[(v >> 8) & 0xff] + 
-            lookupTable[(v >> 16) & 0xff] + 
-            lookupTable[(v >> 24) & 0xff] + 
-            lookupTable[(v >> 32) & 0xff] + 
-            lookupTable[(v >> 40) & 0xff] + 
-            lookupTable[(v >> 48) & 0xff] + 
-            lookupTable[v >> 56]
-        return c
+
+    func whichBit(input: UInt64) -> Int {
+        let masks: [UInt64] = [
+            0xaaaaaaaaaaaaaaaa,
+            0xcccccccccccccccc,
+            0xf0f0f0f0f0f0f0f0,
+            0xff00ff00ff00ff00,
+            0xffff0000ffff0000,
+            0xffffffff00000000
+        ]
+
+        var index = 0
+        var i = 0
+        while i < masks.count {
+            if ((input & masks[i]) != 0) {
+                index += (1 << i)
+            }
+            i += 1
+        }
+        return index
     }
-*/
-    func count_bits_wegner_kernighan() -> Int {
+
+    func decode() -> [Int] {
+        var v = bit_field
+        var results: [Int] = []
+        while v != 0{
+            let prev = v
+            v &= v - 1; // clear the least significant bit set
+            let diff = v ^ prev
+            results.append(whichBit(input: diff))
+        }
+        return results
+    }
+
+    func count_bits() -> Int {
         var v = bit_field
         var c: Int = 0
         while v != 0{

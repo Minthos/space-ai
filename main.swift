@@ -1,3 +1,8 @@
+////////////////////////////// COPYRIGHT //////////////////////////////////////
+// Copyright 2020 Espen Overaae. All rights reserved.
+// 
+
+
 import Foundation
 
 func main(){
@@ -13,8 +18,11 @@ func main(){
     ////////////////////////////// TEST SETUP /////////////////////////////////////
     print("--- * * * * * * * ---")
 
-    HctNode.initialize()
     let spatialTree: HctNode = HctNode()
+    print("size of spatialTree: \(MemoryLayout.size(ofValue: spatialTree))")
+    print("size of spatialTree.bit_field: \(MemoryLayout.size(ofValue: spatialTree.bit_field))")
+    print("size of spatialTree.children: \(MemoryLayout.size(ofValue: spatialTree.children))")
+    print("size of spatialTree.data: \(MemoryLayout.size(ofValue: spatialTree.data))")
 
     print("--- * * * * * * * ---")
     let stations = world.allStations()
