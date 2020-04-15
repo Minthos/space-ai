@@ -70,6 +70,15 @@ func coordGen(rho_scaling: Double) -> (Double, Double, Double){
 
 ////////////////////////////// CLASSES ////////////////////////////////////////
 
+class Uid{
+    static var count: Int = 0
+    class func getNewId() -> Int{
+        let rax = count
+        count += 1
+        return rax
+    }
+}
+
 class CargoSpace{
     var capacity: Double = 0
 
@@ -118,8 +127,8 @@ class CargoSpace{
     }
 }
 
-class Ship{
-    let id: Int!
+class Ship:Uid{
+    let id: Int
     let cargo: CargoSpace
     var owner: String
 
@@ -127,15 +136,15 @@ class Ship{
     var theta: Double = 0
     var phi: Double = 0
 
-    init(id: Int, owner: String, size: Double){
-        self.id = id
+    init(owner: String, size: Double){
+        self.id = Ship.getNewId()
         self.owner = owner
         self.cargo = CargoSpace(capacity: size)
     }
 }
 
-class Station{
-    let id: Int!
+class Station:Uid{
+    let id: Int
     let hold: CargoSpace
     var owner: String = ""
 
@@ -147,8 +156,8 @@ class Station{
     var gas: Double = 0
     var precious: Double = 0
 
-    init(seed: Int, id: Int){
-        self.id = id
+    init(seed: Int){
+        self.id = Station.getNewId()
         self.hold = CargoSpace(capacity: config.stationDefaultCapacity)
     }
 
@@ -160,7 +169,7 @@ class Station{
 
 class Asteroid{
     private let randomSeed: Int!
-    let id: Int!
+    let id: Int
 
     var rho: Double = 0
     var theta: Double = 0
@@ -193,9 +202,9 @@ class Asteroid{
     }
 }
 
-class Moon{
-    private let randomSeed: Int!
-    let id: Int!
+class Moon:Uid{
+    private let randomSeed: Int
+    let id: Int
     
     var rho: Double = 0
     var theta: Double = 0
@@ -207,17 +216,17 @@ class Moon{
 
     var stations = [Station]()
 
-    init(seed: Int, id: Int){
+    init(seed: Int){
         self.randomSeed = seed
-        self.id = id
+        self.id = Moon.getNewId()
     }
 
     func proceduralInit(){
         srandom(UInt32(self.randomSeed))
         (self.rho, self.theta, self.phi) = coordGen(rho_scaling: 1e8 * KM)
         let numStations = random() % 100 == 0 ? 1 : 0
-        for i in 0..<numStations{
-            stations.append(Station(seed: random(), id:i))
+        for _ in 0..<numStations{
+            stations.append(Station(seed: random()))
         }
         for i in 0..<numStations{
             stations[i].proceduralInit()
@@ -240,9 +249,9 @@ class Moon{
     }
 }
 
-class Planet{
-    private let randomSeed: Int!
-    let id: Int!
+class Planet:Uid{
+    private let randomSeed: Int
+    let id: Int
     
     var rho: Double = 0
     var theta: Double = 0
@@ -255,9 +264,9 @@ class Planet{
     var moons = [Moon]()
     var stations = [Station]()
 
-    init(seed: Int, id: Int){
+    init(seed: Int){
         self.randomSeed = seed
-        self.id = id
+        self.id = Planet.getNewId()
     }
 
     func proceduralInit(){
@@ -265,11 +274,11 @@ class Planet{
         (self.rho, self.theta, self.phi) = coordGen(rho_scaling: 20 * AU)
         let numMoons = moonQtyGen(max_: config.maxMoons, min_:0)
         let numStations = random() % 10 == 0 ? 1 : 0
-        for i in 0..<numMoons{
-            moons.append(Moon(seed: random(), id:i))
+        for _ in 0..<numMoons{
+            moons.append(Moon(seed: random()))
         }
-        for i in 0..<numStations{
-            stations.append(Station(seed: random(), id:i))
+        for _ in 0..<numStations{
+            stations.append(Station(seed: random()))
         }
         for i in 0..<numMoons{
             moons[i].proceduralInit()
@@ -293,8 +302,8 @@ class Planet{
     }
 }
 
-class System{
-    private let randomSeed: Int!
+class System:Uid{
+    private let randomSeed: Int
     let id: Int
     
     var rho: Double = 0
@@ -304,9 +313,9 @@ class System{
     var planets = [Planet]()
     var asteroids = [Asteroid]()
 
-    init(seed: Int, id: Int){
+    init(seed: Int){
         self.randomSeed = seed
-        self.id = id
+        self.id = System.getNewId()
     }
 
     func proceduralInit(){
@@ -315,11 +324,11 @@ class System{
         (self.rho, self.theta, self.phi) = coordGen(rho_scaling: 1.0e6 * PARSEC)
         let numPlanets = planetQtyGen(max_: config.maxPlanets, min_:1)
         let numAsteroids = genericQtyGen(max_: config.maxAsteroids, min_:1)
-        for i in 0..<numPlanets{
-            planets.append(Planet(seed: random(), id:i))
+        for _ in 0..<numPlanets{
+            planets.append(Planet(seed: random()))
         }
         for i in 0..<numAsteroids{
-            asteroids.append(Asteroid(seed: random(), id:i))
+            asteroids.append(Asteroid(seed: random(), id: i))
         }
         for i in 0..<numPlanets{
             planets[i].proceduralInit()
@@ -328,11 +337,15 @@ class System{
             asteroids[i].proceduralInit()
         }
     }
+    
+    func stations() -> Array<Station>{
+        return planets.flatMap{ $0.stations + $0.moons.flatMap{ $0.stations } }
+    }
 }
 
-class Galaxy{
-    private let randomSeed: Int!
-    let id: Int!
+class Galaxy:Uid{
+    private let randomSeed: Int
+    let id: Int
     
     var rho: Double = 0
     var theta: Double = 0
@@ -340,9 +353,9 @@ class Galaxy{
     
     var systems = [System]()
 
-    init(seed: Int, id: Int){
+    init(seed: Int){
         self.randomSeed = seed
-        self.id = id
+        self.id = Galaxy.getNewId()
     }
 
     func proceduralInit(){
@@ -351,8 +364,8 @@ class Galaxy{
         //let numSystems = genericQtyGen(max_: config.maxSystems, min_:1)
         let numSystems = max(1, random() % config.maxSystems)
         print("spawning \(numSystems) systems")
-        for i in 0..<numSystems{
-            systems.append(System(seed: random(), id:i))
+        for _ in 0..<numSystems{
+            systems.append(System(seed: random()))
         }
         print("configuring systems")
         for i in 0..<numSystems{
@@ -363,7 +376,7 @@ class Galaxy{
 }
 
 class Universe{
-    private let randomSeed: Int!
+    private let randomSeed: Int
     var galaxies = [Galaxy]()
 
     init(seed: Int){
@@ -374,8 +387,8 @@ class Universe{
         srandom(UInt32(self.randomSeed))
         let numGalaxies = config.numGalaxies
         print("spawning \(numGalaxies) galaxies")
-        for i in 0..<numGalaxies{
-            self.galaxies.append(Galaxy(seed: random(), id:i))
+        for _ in 0..<numGalaxies{
+            self.galaxies.append(Galaxy(seed: random()))
         }
         print("configuring \(numGalaxies) galaxies")
         for i in 0..<numGalaxies{
@@ -383,13 +396,17 @@ class Universe{
         }
         print("\(numGalaxies) galaxies ready")
     }
+
+    func allSystems() -> Array<System>{
+        return galaxies.flatMap{ $0.systems }
+    }
+
+    func allStations() -> Array<Station>{
+        return galaxies.flatMap{ $0.systems.flatMap{ $0.planets.flatMap{ $0.stations + $0.moons.flatMap{ $0.stations } } } }
+    }
 }
 
-////////////////////////////// INITIALIZATION ////////////////////////////////
-
-
-//print("initializing world with seed: \(config.randomSeed) at time: \(Date()) ");
-//let world = Universe(seed: config.randomSeed)
+////////////////////////////// INITIALIZATION /////////////////////////////////
 
 var seed = config.randomSeed
 if(CommandLine.arguments.count > 1){
@@ -399,7 +416,23 @@ print("initializing world with seed: \(seed) at time: \(Date()) ");
 let world = Universe(seed: seed)
 world.proceduralInit()
 
-////////////////////////////// RUNLOOP ///////////////////////////////////////
+
+////////////////////////////// TEST SETUP /////////////////////////////////////
+
+print("--- * * * * * * * ---")
+let stations = world.allStations()
+print("\(stations.count) stations")
+
+var ships: [Int: Ship] = [:]
+for system in world.allSystems(){
+    for station in system.stations(){
+        let ship = Ship(owner: "test", size: 10)
+        ships[ship.id] = ship
+        print("spawned ship with id \(ship.id) at station with id \(station.id)")
+    }
+}
+
+////////////////////////////// RUNLOOP ////////////////////////////////////////
 
 //while true {
 //    print("zzz...")
