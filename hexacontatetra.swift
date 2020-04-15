@@ -71,12 +71,12 @@ struct BBox{
     }
 
     func contains(_ point: Point) -> Bool{
-        return (point.x > bottom.x &&
-                point.y > bottom.y &&
-                point.z > bottom.z &&
-                point.x < top.x &&
-                point.y < top.y &&
-                point.z < top.z)
+        return (point.x >= bottom.x &&
+                point.y >= bottom.y &&
+                point.z >= bottom.z &&
+                point.x <= top.x &&
+                point.y <= top.y &&
+                point.z <= top.z)
     }
 
     func intersects(bbox: BBox) -> Bool{
@@ -114,13 +114,20 @@ class HctTree{
     func resolve(_ position: Point) -> [UInt8]{
         var rax: [UInt8] = []
         var box = dims
-        // 26 because Double only has 53 bits of precision. Should break out earlier unless two objects are on top of each other
-        for i in 0..<26 {
-            var quadrant = index6bit(top: box.top, bottom:box.bottom, point:position)
+        // 26 because Double only has 53 bits of precision. Should break out earlier if possible. (TODO)
+        for _ in 0..<26 {
+            let quadrant = index6bit(top: box.top, bottom:box.bottom, point:position)
             rax.append(UInt8(quadrant))
             box = box.selectQuadrant(quadrant)
+            if !box.contains(position){
+                print("!!! ERROR! point not inside bounding box at HctTree.resolve(position: \(position))")
+            }
         }
         return rax
+    }
+
+    func addLayer(){
+        
     }
 
     func insert(item: AnyObject, position: Point){
