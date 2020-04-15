@@ -18,11 +18,14 @@ func main(){
     ////////////////////////////// TEST SETUP /////////////////////////////////////
     print("--- * * * * * * * ---")
 
-    let spatialTree: HctNode = HctNode()
-    print("size of spatialTree: \(MemoryLayout.size(ofValue: spatialTree))")
-    print("size of spatialTree.bit_field: \(MemoryLayout.size(ofValue: spatialTree.bit_field))")
-    print("size of spatialTree.children: \(MemoryLayout.size(ofValue: spatialTree.children))")
-    print("size of spatialTree.data: \(MemoryLayout.size(ofValue: spatialTree.data))")
+    let spatialTree: HctTree = HctTree()
+    print("size of spatialTree: \(MemoryLayout.size(ofValue: spatialTree.root))")
+    print("size of spatialTree.bit_field: \(MemoryLayout.size(ofValue: spatialTree.root.bit_field))")
+    print("size of spatialTree.children: \(MemoryLayout.size(ofValue: spatialTree.root.children))")
+    print("size of spatialTree.data: \(MemoryLayout.size(ofValue: spatialTree.root.data))")
+
+    let set_bits = spatialTree.root.decode()
+    print("set_bits: \(set_bits)")
 
     print("--- * * * * * * * ---")
     let stations = world.allStations()

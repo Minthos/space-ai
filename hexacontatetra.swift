@@ -6,15 +6,66 @@
 
 import Foundation
 
+struct Point{
+    var x: Double
+    var y: Double
+    var z: Double
+}
+
+struct BBox{
+    var top: Point
+    var bottom: Point
+
+    mutating func expand(p: Point){
+        top.x = max(top.x, p.x)
+        top.y = max(top.y, p.y)
+        top.z = max(top.z, p.z)
+        top.x = min(top.x, p.x)
+        top.y = min(top.y, p.y)
+        top.z = min(top.z, p.z)
+    }
+
+    func isInside(p: Point) -> Bool{
+        return (p.x > bottom.x &&
+                p.y > bottom.y &&
+                p.z > bottom.z &&
+                p.x < bottom.x &&
+                p.y < bottom.y &&
+                p.z < bottom.z)
+    }
+}
+
+class HctTree{
+    var root: HctNode = HctNode()
+    var dims: BBox = BBox(top: Point(x:0, y:0, z:0), bottom: Point(x:0, y:0, z:0))
+
+    func insert(item: AnyObject, position: Point){
+        
+    }
+
+    func remove(item: AnyObject, position: Point){
+
+    }
+
+    func relocate(item: AnyObject, currentPosition: Point, newPosition: Point){
+        remove(item: item, position:currentPosition)
+        insert(item: item, position:newPosition)
+    }
+
+    func lookup(region: BBox) -> [AnyObject] {
+        return []
+    }
+
+    // TODO: complete implementation
+
+    // TODO: optimize
+}
+
 class HctNode{
     var bit_field: UInt64 = 0
     var children: [HctNode] = []
     var data: [AnyObject] = []
     
-    func insert(item: AnyObject, location: (Double, Double, Double)){
-        // how to convert location to spatial tree index?
-    }
-
     func whichBit(input: UInt64) -> Int {
         let masks: [UInt64] = [
             0xaaaaaaaaaaaaaaaa,
@@ -57,9 +108,5 @@ class HctNode{
         }
         return c
     }
-
-    // TODO: complete implementation
-
-    // TODO: optimize
 }
 
