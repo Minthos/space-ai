@@ -28,6 +28,13 @@ func main(){
     print("set_bits: \(set_bits)")
 
     print("--- * * * * * * * ---")
+    
+    var box1 = BBox(top: Point(99.99, 0.005, 3.14), bottom: Point(-1, -2, -1e18))
+    print(box1)
+    box1.potimize()
+    print(box1)
+    
+    print("--- * * * * * * * ---")
     let stations = world.allStations()
     print("\(stations.count) stations")
     var ships: [Int: Ship] = [:]
