@@ -33,6 +33,17 @@ func main(){
     print(box1)
     box1.potimize()
     print(box1)
+
+    print(box1.selectQuadrant(0x00))
+    print(box1.selectQuadrant(0x15))
+    print(box1.selectQuadrant(0x2A))
+    print(box1.selectQuadrant(0x3F))
+
+//    print(spatialTree.index2bit(top: 1, bottom: -1, point: -0.99))
+//    print(spatialTree.index2bit(top: 1, bottom: -1, point: -0.1))
+//    print(spatialTree.index2bit(top: 1, bottom: -1, point: 0.3))
+//    print(spatialTree.index2bit(top: 1, bottom: -1, point: 0.55))
+
     
     print("--- * * * * * * * ---")
     let stations = world.allStations()

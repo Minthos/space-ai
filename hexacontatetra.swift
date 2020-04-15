@@ -38,6 +38,23 @@ struct BBox{
     var top: Point
     var bottom: Point
 
+    func selectQuadrant(_ index: UInt8) -> BBox{
+        let xindex = Double(index & 0x03)
+        let yindex = Double((index >> 2) & 0x03)
+        let zindex = Double((index >> 4) & 0x03)
+        var selection = BBox(top: top, bottom: bottom)
+        let spanx = (selection.top.x - selection.bottom.x) / 4
+        let spany = (selection.top.y - selection.bottom.y) / 4
+        let spanz = (selection.top.z - selection.bottom.z) / 4
+        selection.top.x -= spanx * (3 - xindex)
+        selection.bottom.x += spanx * xindex
+        selection.top.y -= spany * (3 - yindex)
+        selection.bottom.y += spany * yindex
+        selection.top.z -= spanz * (3 - zindex)
+        selection.bottom.z += spanz * zindex
+        return selection
+    }
+
     mutating func expandTo(_ point: Point){
         top.x = max(top.x, point.x)
         top.y = max(top.y, point.y)
@@ -76,7 +93,44 @@ class HctTree{
     var root: HctNode = HctNode()
     var dims: BBox = BBox(top: Point(0, 0, 0), bottom: Point(0, 0, 0))
 
+    func index2bit(top: Double, bottom: Double, point: Double) -> UInt8{
+        if (top - point) > 3 * (point - bottom){
+            return 0
+        } else if (top - point) > (point - bottom){
+            return 1
+        } else if 3 * (top - point) > (point - bottom){
+            return 2
+        } else {
+            return 3
+        }
+    }
+
+    func index6bit(top: Point, bottom: Point, point: Point) -> UInt8{
+        return index2bit(top: top.x, bottom: bottom.x, point: point.x) |
+                index2bit(top: top.y, bottom: bottom.y, point: point.y) << 2 |
+                index2bit(top: top.z, bottom: bottom.z, point: point.z) << 4
+    }
+
+    func resolve(_ position: Point) -> [UInt8]{
+        var rax: [UInt8] = []
+        var box = dims
+        for i in 0..<32 {
+            let quadrant = index6bit(top: box.top, bottom:box.bottom, point:position)
+            rax.append(UInt8(quadrant))
+            
+        }
+        return rax
+    }
+
     func insert(item: AnyObject, position: Point){
+        // special case
+        if numItems == 0 {
+            numItems += 1
+            dims.expandTo(position)
+            dims.potimize()
+
+        }
+
         if !dims.contains(position){
             // TODO: panic! just kidding.. add more levels of the tree
         }
