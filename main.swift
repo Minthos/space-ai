@@ -33,17 +33,11 @@ func main(){
     print(box1)
     box1.potimize()
     print(box1)
-
     print(box1.selectQuadrant(0x00))
     print(box1.selectQuadrant(0x15))
     print(box1.selectQuadrant(0x2A))
     print(box1.selectQuadrant(0x3F))
-
-//    print(spatialTree.index2bit(top: 1, bottom: -1, point: -0.99))
-//    print(spatialTree.index2bit(top: 1, bottom: -1, point: -0.1))
-//    print(spatialTree.index2bit(top: 1, bottom: -1, point: 0.3))
-//    print(spatialTree.index2bit(top: 1, bottom: -1, point: 0.55))
-
+    
     
     print("--- * * * * * * * ---")
     let stations = world.allStations()
@@ -56,6 +50,13 @@ func main(){
             print("spawned ship with id \(ship.id) at station with id \(station.id)")
         }
     }
+
+    print("--- * * * * * * * ---")
+
+    spatialTree.insert(item: ships[351]!, position: Point(10, 10, 10))
+    spatialTree.insert(item: ships[352]!, position: Point(-10, -10, -10))
+
+    print(spatialTree.resolve(Point(4,1,8)))
 
     ////////////////////////////// RUNLOOP ////////////////////////////////////////
 

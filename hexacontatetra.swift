@@ -59,9 +59,9 @@ struct BBox{
         top.x = max(top.x, point.x)
         top.y = max(top.y, point.y)
         top.z = max(top.z, point.z)
-        top.x = min(top.x, point.x)
-        top.y = min(top.y, point.y)
-        top.z = min(top.z, point.z)
+        bottom.x = min(bottom.x, point.x)
+        bottom.y = min(bottom.y, point.y)
+        bottom.z = min(bottom.z, point.z)
     }
 
     // round each coordinate up to nearest power of 2
@@ -79,7 +79,7 @@ struct BBox{
                 point.z < top.z)
     }
 
-    func intersects(_ bbox: BBox) -> Bool{
+    func intersects(bbox: BBox) -> Bool{
         return ((bbox.bottom.x <= top.x && bbox.top.x >= bottom.x) &&
                 (bbox.bottom.y <= top.y && bbox.top.y >= bottom.y) &&
                 (bbox.bottom.z <= top.z && bbox.top.z >= bottom.z))
@@ -114,10 +114,11 @@ class HctTree{
     func resolve(_ position: Point) -> [UInt8]{
         var rax: [UInt8] = []
         var box = dims
-        for i in 0..<32 {
-            let quadrant = index6bit(top: box.top, bottom:box.bottom, point:position)
+        // 26 because Double only has 53 bits of precision. Should break out earlier unless two objects are on top of each other
+        for i in 0..<26 {
+            var quadrant = index6bit(top: box.top, bottom:box.bottom, point:position)
             rax.append(UInt8(quadrant))
-            
+            box = box.selectQuadrant(quadrant)
         }
         return rax
     }
@@ -125,7 +126,6 @@ class HctTree{
     func insert(item: AnyObject, position: Point){
         // special case
         if numItems == 0 {
-            numItems += 1
             dims.expandTo(position)
             dims.potimize()
 
@@ -133,8 +133,11 @@ class HctTree{
 
         if !dims.contains(position){
             // TODO: panic! just kidding.. add more levels of the tree
+            dims.expandTo(position)
+            dims.potimize()
         }
         
+        numItems += 1
     }
 
     func remove(item: AnyObject, position: Point){
