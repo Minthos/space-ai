@@ -276,8 +276,8 @@ class Ship:Uid{
                 if distance(self.positionCartesian, roid.positionCartesian) < config.miningRange{
                     // TODO
                 }
-            case .unload:
-            case .refuel:
+//            case .unload:
+//            case .refuel:
             default:
                 print("command not handled: \(action)")
             }
