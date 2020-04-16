@@ -2,7 +2,7 @@
 // Copyright 2020 Espen Overaae
 // Public Domain
 //
-// Sparse octree with 2 levels represented per node packet in a 64-bit boolean field for a total of 64 subdivisions
+// Sparse octree with 2 levels represented per node packed in a 64-bit boolean field for a total of 64 subdivisions
 
 import Foundation
 
