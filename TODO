@@ -1,0 +1,8 @@
+
+
+movement system and coordinate transforms
+fuel consumption
+resource harvesting
+finish the octree stub implementation (no need to make it an actual octree until we run into performance issues)
+generating basic dumb commands automatically
+
