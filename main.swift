@@ -18,7 +18,7 @@ func main(){
     ////////////////////////////// TEST SETUP /////////////////////////////////////
     print("--- * * * * * * * ---")
 
-    let spatialTree: HctTree = HctTree()
+    let spatialTree: HctTree = HctTree(initialSize: 1e6 * PARSEC)
     print("size of spatialTree: \(MemoryLayout.size(ofValue: spatialTree.root))")
     print("size of spatialTree.bit_field: \(MemoryLayout.size(ofValue: spatialTree.root.bit_field))")
     print("size of spatialTree.children: \(MemoryLayout.size(ofValue: spatialTree.root.children))")
@@ -57,6 +57,12 @@ func main(){
     spatialTree.insert(item: ships[352]!, position: Point(-10, -10, -10))
 
     print(spatialTree.resolve(Point(4,1,8)))
+
+    print("spatialTree contains \(spatialTree.numItems) items")
+    spatialTree.remove(item: ships[351]!, position: Point(10, 10, 10))
+    spatialTree.remove(item: ships[353]!, position: Point(-10, -10, -10))
+    print("spatialTree contains \(spatialTree.numItems) items")
+    spatialTree.remove(item: ships[352]!, position: Point(-10, -10, -10))
 
     ////////////////////////////// RUNLOOP ////////////////////////////////////////
 

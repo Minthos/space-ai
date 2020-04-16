@@ -26,11 +26,19 @@ struct Point{
         self.z = z
     }
 
+//    init(_ xyz: (Double, Double, Double)){
+//        (self.x, self.y, self.z) = xyz
+//    }
+
     // round each coordinate up to nearest power of 2
     mutating func potimize(){
         x = potimizeDouble(x)
         y = potimizeDouble(y)
         z = potimizeDouble(z)
+    }
+
+    func xyz() -> [Double] {
+        return [x, y, z]
     }
 }
 
@@ -38,6 +46,8 @@ struct BBox{
     var top: Point
     var bottom: Point
 
+    // returns a (1/4, 1/4, 1/4) size section of a bounding box.
+    // Which of the 64 possible subsections is indicated by the argument "index"
     func selectQuadrant(_ index: UInt8) -> BBox{
         let xindex = Double(index & 0x03)
         let yindex = Double((index >> 2) & 0x03)
@@ -93,6 +103,11 @@ class HctTree{
     var root: HctNode = HctNode()
     var dims: BBox = BBox(top: Point(0, 0, 0), bottom: Point(0, 0, 0))
 
+    init(initialSize: Double){
+        let extent = potimizeDouble(initialSize)
+        self.dims = BBox(top: Point(extent, extent, extent), bottom:(Point(-extent, -extent, -extent)))
+    }
+
     func index2bit(top: Double, bottom: Double, point: Double) -> UInt8{
         if (top - point) > 3 * (point - bottom){
             return 0
@@ -131,24 +146,27 @@ class HctTree{
     }
 
     func insert(item: AnyObject, position: Point){
-        // special case
-        if numItems == 0 {
-            dims.expandTo(position)
-            dims.potimize()
-
-        }
-
         if !dims.contains(position){
             // TODO: panic! just kidding.. just make the tree deeper
-            dims.expandTo(position)
-            dims.potimize()
+            // btw the following is not the complete solution, it's also necessary to create new nodes:
+            let absElements = position.xyz().map({ abs($0) })
+            var extent = absElements.reduce(0, { a, b in max(a, b) })
+            extent = potimizeDouble(extent)
+            self.dims = BBox(top: Point(extent, extent, extent), bottom:(Point(-extent, -extent, -extent)))
         }
-        
+       
+        root.data.append(item)
         numItems += 1
     }
 
     func remove(item: AnyObject, position: Point){
-
+        if let i = root.data.firstIndex(where: { $0 === item } ){
+            root.data.remove(at: i)
+            numItems -= 1
+        } else {
+            print("Can't remove element that isn't there!")
+            // TODO: add more functionality
+        }
     }
 
     func relocate(item: AnyObject, currentPosition: Point, newPosition: Point){
@@ -166,7 +184,9 @@ class HctNode{
     var bit_field: UInt64 = 0
     var children: [HctNode] = []
     var data: [AnyObject] = []
-    
+   
+    // expects a bit field with a single bit set to high
+    // returns the index of that bit
     func whichBit(input: UInt64) -> Int {
         let masks: [UInt64] = [
             0xaaaaaaaaaaaaaaaa,
@@ -176,7 +196,6 @@ class HctNode{
             0xffff0000ffff0000,
             0xffffffff00000000
         ]
-
         var index = 0
         var i = 0
         while i < masks.count {
@@ -187,7 +206,16 @@ class HctNode{
         }
         return index
     }
-
+    
+    // returns an array of numbers indicating which bit in the bit field represents
+    // the child node at the same index in the children array
+    //
+    // example:
+    // bit_field 0000 0000 0000 0000 0001 0000 0001 0001
+    // children [node, node, node]
+    // decode: [0,4,12]
+    // then you can zip decode with children and get something like [(0, node), (4, node), (12, node)]
+    // TODO: verify that the order of bits I described above matches what the code produces, to avoid bugs
     func decode() -> [Int] {
         var v = bit_field
         var results: [Int] = []
@@ -200,6 +228,8 @@ class HctNode{
         return results
     }
 
+    // returns the number of children by counting high bits in the bit field
+    // a bit useless I suppose when one can just query the length of the children array
     func count_bits() -> Int {
         var v = bit_field
         var c: Int = 0
