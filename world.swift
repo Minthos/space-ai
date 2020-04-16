@@ -22,7 +22,8 @@ let configString = """
     "maxPlanets": 40,
     "maxMoons": 100,
     "maxAsteroids": 1000000,
-    "stationDefaultCapacity": 1000
+    "stationDefaultCapacity": 1000,
+    "miningRange": 100.0
 }
 """
 class Config: Decodable{
@@ -33,6 +34,7 @@ class Config: Decodable{
     let maxMoons: Int
     let maxAsteroids: Int
     let stationDefaultCapacity: Double
+    let miningRange: Double
 }
 let config = try!JSONDecoder().decode(Config.self, from:configString.data(using: .utf8)!)
 
@@ -69,10 +71,10 @@ func coordGen(rho_scaling: Double) -> SphericalPoint{
 
 ////////////////////////////// CLASSES ////////////////////////////////////////
 
-func toCartesian(_ rho: Double, _ theta: Double, _ phi: Double) -> (Point){
-    let x = rho * sin(phi) * cos(theta)
-    let y = rho * sin(phi) * sin(theta)
-    let z = rho * cos(theta)
+func toCartesian(_ p: SphericalPoint) -> (Point){
+    let x = p.rho * sin(p.phi) * cos(p.theta)
+    let y = p.rho * sin(p.phi) * sin(p.theta)
+    let z = p.rho * cos(p.theta)
     return Point(x, y, z)
 }
 
@@ -118,6 +120,27 @@ struct Point{
     }
 }
 
+func +(left: Point, right: Point) -> Point {
+    return Point(left.x + right.x, left.y + right.y, left.z + right.z)
+}
+
+func -(left: Point, right: Point) -> Point {
+    return Point(left.x - right.x, left.y - right.y, left.z - right.z)
+}
+
+func distance(_ left: Point, _ right: Point) -> Double {
+    return sqrt((left.x - right.x) ** 2 + (left.y - right.y) ** 2 + (left.z - right.z) ** 2)
+}
+
+precedencegroup ExponentiationPrecedence {
+  associativity: left
+  higherThan: MultiplicationPrecedence
+}
+infix operator ** : ExponentiationPrecedence
+
+func ** (num: Double, power: Double) -> Double{
+    return pow(num, power)
+}
 
 class Uid{
     static var count: Int = 0
@@ -177,7 +200,7 @@ class CargoSpace{
 }
 
 enum Command{
-    case move(Point)
+    case move(SphericalPoint)
     case warp(System)
     case jump(Galaxy)
     case harvest(Asteroid)
@@ -195,6 +218,7 @@ class Ship:Uid{
 
     var currentSystem: System
     var position: SphericalPoint
+    var positionCartesian: Point
 
     init(owner: String, size: Double, system: System){
         self.id = Ship.getNewId()
@@ -202,27 +226,62 @@ class Ship:Uid{
         self.cargo = CargoSpace(capacity: size)
         self.currentSystem = system
         self.position = SphericalPoint(0,0,0)
+        self.positionCartesian = toCartesian(self.position)
     }
 
-    func move(to: Point){
-        
+    func move(to: SphericalPoint){
+        let fuelRemaining = cargo.fuel
+        if(fuelRemaining < 1.0){
+            return
+        } else {
+            cargo.fuel -= 1.0
+            self.position = to
+            self.positionCartesian = toCartesian(self.position)
+        }
     }
 
     func generateCommands(){
-        
+        if(self.cargo.remainingCapacity() < 1.0 || self.cargo.fuel < 2.0){
+            let station = self.currentSystem.findNearestStation(to: self.positionCartesian)
+            if station == nil{
+                return
+            }
+            self.commandQueue.append(Command.move(station!.position))
+            self.commandQueue.append(Command.unload(station!))
+            self.commandQueue.append(Command.refuel(station!))
+        } else if self.cargo.miningDrone >= 1 {
+            let roid = self.currentSystem.findNearestAsteroid(to: self.positionCartesian)
+            if roid == nil{
+                return
+            }
+            if distance(self.positionCartesian, roid!.positionCartesian) < config.miningRange{
+                self.commandQueue.append(Command.harvest(roid!))
+            } else {
+                self.commandQueue.append(Command.move(roid!.position))
+            }
+        }     
     }
 
     func tick(){
-        self.generateCommands()
+        if(commandQueue.count == 0){
+            self.generateCommands()
+        }
         if(commandQueue.count > 0){
             let action = commandQueue[0]
             commandQueue.removeFirst()
             switch(action){
-                case .move(let toWhere):
-                    move(to: toWhere)
-                default:
-                    print("command not handled: \(action)")
+            case .move(let toWhere):
+                move(to: toWhere)
+            case .harvest(let roid):
+                if distance(self.positionCartesian, roid.positionCartesian) < config.miningRange{
+                    // TODO
+                }
+            case .unload:
+            case .refuel:
+            default:
+                print("command not handled: \(action)")
             }
+        } else {
         }
     }
 }
@@ -233,6 +292,7 @@ class Station:Uid{
     var owner: String = ""
 
     var position: SphericalPoint = SphericalPoint(0,0,0)
+    var positionCartesian: Point = Point(0,0,0)
 
     var minerals: Double = 0
     var gas: Double = 0
@@ -243,9 +303,11 @@ class Station:Uid{
         self.hold = CargoSpace(capacity: config.stationDefaultCapacity)
     }
 
-    func proceduralInit(){
+    func proceduralInit(offset: Point){
         print("Space Station!")
         self.position = coordGen(rho_scaling: 1e6 * KM)
+        // TODO: add offset of planet/moon to cartesian position
+        self.positionCartesian = toCartesian(self.position) + offset
     }
 }
 
@@ -254,6 +316,7 @@ class Asteroid{
     let id: Int
 
     var position: SphericalPoint = SphericalPoint(0,0,0)
+    var positionCartesian: Point = Point(0,0,0)
 
     var minerals: Double = 0
     var gas: Double = 0
@@ -268,6 +331,7 @@ class Asteroid{
         srandom(UInt32(self.randomSeed))
         
         self.position = coordGen(rho_scaling: 100 * AU)
+        self.positionCartesian = toCartesian(self.position)
 
         let type = random()
         if type % 5 > 0{
@@ -287,6 +351,7 @@ class Moon:Uid{
     let id: Int
     
     var position: SphericalPoint = SphericalPoint(0,0,0)
+    var positionCartesian: Point = Point(0,0,0)
     
     var minerals: Double = 0
     var gas: Double = 0
@@ -299,15 +364,16 @@ class Moon:Uid{
         self.id = Moon.getNewId()
     }
 
-    func proceduralInit(){
+    func proceduralInit(planet: Planet){
         srandom(UInt32(self.randomSeed))
         self.position = coordGen(rho_scaling: 1e8 * KM)
+        self.positionCartesian = toCartesian(self.position) + planet.positionCartesian
         let numStations = random() % 100 == 0 ? 1 : 0
         for _ in 0..<numStations{
             stations.append(Station(seed: random()))
         }
         for i in 0..<numStations{
-            stations[i].proceduralInit()
+            stations[i].proceduralInit(offset: self.positionCartesian)
         }
 
         let type = random()
@@ -332,6 +398,7 @@ class Planet:Uid{
     let id: Int
     
     var position: SphericalPoint = SphericalPoint(0,0,0)
+    var positionCartesian: Point = Point(0,0,0)
     
     var minerals: Double = 0
     var gas: Double = 0
@@ -348,6 +415,7 @@ class Planet:Uid{
     func proceduralInit(){
         srandom(UInt32(self.randomSeed))
         self.position = coordGen(rho_scaling: 20 * AU)
+        self.positionCartesian = toCartesian(self.position)
         let numMoons = moonQtyGen(max_: config.maxMoons, min_:0)
         let numStations = random() % 10 == 0 ? 1 : 0
         for _ in 0..<numMoons{
@@ -357,10 +425,10 @@ class Planet:Uid{
             stations.append(Station(seed: random()))
         }
         for i in 0..<numMoons{
-            moons[i].proceduralInit()
+            moons[i].proceduralInit(planet: self)
         }
         for i in 0..<numStations{
-            stations[i].proceduralInit()
+            stations[i].proceduralInit(offset: self.positionCartesian)
         }
 
         let type = random()
@@ -415,6 +483,29 @@ class System:Uid{
     func stations() -> Array<Station>{
         return planets.flatMap{ $0.stations + $0.moons.flatMap{ $0.stations } }
     }
+
+    // TODO: replace this with an octree version because this is going to be damn slow when the number of ships gets non-trivial
+    func findNearestAsteroid(to: Point) -> Asteroid? {
+        var nearest: Asteroid? = nil
+        for r in asteroids {
+            if nearest == nil || distance(to, r.positionCartesian) < distance(to, nearest!.positionCartesian){
+                nearest = r
+            }
+        }
+        return nearest
+    }
+    
+    func findNearestStation(to: Point) -> Station? {
+        var nearest: Station? = nil
+        for s in stations() {
+            if nearest == nil || distance(to, s.positionCartesian) < distance(to, nearest!.positionCartesian){
+                nearest = s
+            }
+        }
+        return nearest
+    }
+
+
 }
 
 class Galaxy:Uid{

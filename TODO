@@ -6,3 +6,19 @@ resource harvesting
 finish the octree stub implementation (no need to make it an actual octree until we run into performance issues)
 generating basic dumb commands automatically
 
+
+
+
+
+design decisions:
+
+System is the zone subdivision in the game world. Galaxy may well be the shard subdivision, but maybe that should be Universe. TBD.
+Octrees are centered on the star and the root node is big enough to contain all celestial objects for that system. Smaller subdivisions are added as needed when more objects are added to the tree.
+One octree for asteroids, one for ships, one for stations? Planets and moons probably don't need to be in an octree. Maybe not even stations.
+
+
+
+
+
+
+

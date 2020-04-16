@@ -57,10 +57,12 @@ func main(){
 
     ////////////////////////////// RUNLOOP ////////////////////////////////////////
 
-    while true {
-        for (id, ship) in ships{
+    var loop_counter: Int = 0
+    while loop_counter < 10 {
+        for (_, ship) in ships{
             ship.tick()
         }
+        loop_counter += 1
     }
 }
 
