@@ -56,7 +56,7 @@ func genericQtyGen(max_: Int, min_: Int) -> Int{
     return max(min_, (a * b) / max_)
 }
 
-func coordGen(rho_scaling: Double) -> (Double, Double, Double){
+func coordGen(rho_scaling: Double) -> SphericalPoint{
     var rho = Double(random()) / Double(RAND_MAX)
     let rho2 = Double(random()) / Double(RAND_MAX)
     let theta = Double(random()) / Double(RAND_MAX)
@@ -64,10 +64,60 @@ func coordGen(rho_scaling: Double) -> (Double, Double, Double){
     let phi2 = Double(random()) / Double(RAND_MAX)
     phi = (phi - 0.5) * 2 * phi2
     rho = rho * rho2
-    return (rho * rho_scaling, theta * 360, phi * 360)
+    return SphericalPoint(rho * rho_scaling, theta * 360, phi * 360)
 }
 
 ////////////////////////////// CLASSES ////////////////////////////////////////
+
+func toCartesian(_ rho: Double, _ theta: Double, _ phi: Double) -> (Point){
+    let x = rho * sin(phi) * cos(theta)
+    let y = rho * sin(phi) * sin(theta)
+    let z = rho * cos(theta)
+    return Point(x, y, z)
+}
+
+func toSpherical(_ p: Point) -> SphericalPoint{
+    let rho = sqrt(p.x*p.x+p.y*p.y+p.z*p.z)
+    let theta = atan(p.y/p.x)
+    let phi = acos(p.z/sqrt(p.x*p.x+p.y*p.y+p.z*p.z))
+    return SphericalPoint(rho, theta, phi)
+}
+
+struct SphericalPoint{
+    var rho: Double
+    var theta: Double
+    var phi: Double
+
+    init(_ rho: Double, _ theta: Double, _ phi: Double){
+        self.rho = rho
+        self.theta = theta
+        self.phi = phi
+    }
+}
+
+struct Point{
+    var x: Double
+    var y: Double
+    var z: Double
+
+    init(_ x: Double, _ y: Double, _ z: Double){
+        self.x = x
+        self.y = y
+        self.z = z
+    }
+
+    // round each coordinate up to nearest power of 2
+    mutating func potimize(){
+        x = potimizeDouble(x)
+        y = potimizeDouble(y)
+        z = potimizeDouble(z)
+    }
+
+    func xyz() -> [Double] {
+        return [x, y, z]
+    }
+}
+
 
 class Uid{
     static var count: Int = 0
@@ -126,19 +176,54 @@ class CargoSpace{
     }
 }
 
+enum Command{
+    case move(Point)
+    case warp(System)
+    case jump(Galaxy)
+    case harvest(Asteroid)
+    case unload(Station)
+    case refuel(Station)
+    case attack(Ship)
+    case bombard(Station)
+}
+
 class Ship:Uid{
     let id: Int
-    let cargo: CargoSpace
+    var cargo: CargoSpace
     var owner: String
+    var commandQueue: [Command] = []
 
-    var rho: Double = 0
-    var theta: Double = 0
-    var phi: Double = 0
+    var currentSystem: System
+    var position: SphericalPoint
 
-    init(owner: String, size: Double){
+    init(owner: String, size: Double, system: System){
         self.id = Ship.getNewId()
         self.owner = owner
         self.cargo = CargoSpace(capacity: size)
+        self.currentSystem = system
+        self.position = SphericalPoint(0,0,0)
+    }
+
+    func move(to: Point){
+        
+    }
+
+    func generateCommands(){
+        
+    }
+
+    func tick(){
+        self.generateCommands()
+        if(commandQueue.count > 0){
+            let action = commandQueue[0]
+            commandQueue.removeFirst()
+            switch(action){
+                case .move(let toWhere):
+                    move(to: toWhere)
+                default:
+                    print("command not handled: \(action)")
+            }
+        }
     }
 }
 
@@ -147,9 +232,7 @@ class Station:Uid{
     let hold: CargoSpace
     var owner: String = ""
 
-    var rho: Double = 0
-    var theta: Double = 0
-    var phi: Double = 0
+    var position: SphericalPoint = SphericalPoint(0,0,0)
 
     var minerals: Double = 0
     var gas: Double = 0
@@ -162,7 +245,7 @@ class Station:Uid{
 
     func proceduralInit(){
         print("Space Station!")
-        (self.rho, self.theta, self.phi) = coordGen(rho_scaling: 1e6 * KM)
+        self.position = coordGen(rho_scaling: 1e6 * KM)
     }
 }
 
@@ -170,9 +253,7 @@ class Asteroid{
     private let randomSeed: Int!
     let id: Int
 
-    var rho: Double = 0
-    var theta: Double = 0
-    var phi: Double = 0
+    var position: SphericalPoint = SphericalPoint(0,0,0)
 
     var minerals: Double = 0
     var gas: Double = 0
@@ -186,7 +267,7 @@ class Asteroid{
     func proceduralInit(){
         srandom(UInt32(self.randomSeed))
         
-        (self.rho, self.theta, self.phi) = coordGen(rho_scaling: 100 * AU)
+        self.position = coordGen(rho_scaling: 100 * AU)
 
         let type = random()
         if type % 5 > 0{
@@ -205,9 +286,7 @@ class Moon:Uid{
     private let randomSeed: Int
     let id: Int
     
-    var rho: Double = 0
-    var theta: Double = 0
-    var phi: Double = 0
+    var position: SphericalPoint = SphericalPoint(0,0,0)
     
     var minerals: Double = 0
     var gas: Double = 0
@@ -222,7 +301,7 @@ class Moon:Uid{
 
     func proceduralInit(){
         srandom(UInt32(self.randomSeed))
-        (self.rho, self.theta, self.phi) = coordGen(rho_scaling: 1e8 * KM)
+        self.position = coordGen(rho_scaling: 1e8 * KM)
         let numStations = random() % 100 == 0 ? 1 : 0
         for _ in 0..<numStations{
             stations.append(Station(seed: random()))
@@ -252,9 +331,7 @@ class Planet:Uid{
     private let randomSeed: Int
     let id: Int
     
-    var rho: Double = 0
-    var theta: Double = 0
-    var phi: Double = 0
+    var position: SphericalPoint = SphericalPoint(0,0,0)
     
     var minerals: Double = 0
     var gas: Double = 0
@@ -270,7 +347,7 @@ class Planet:Uid{
 
     func proceduralInit(){
         srandom(UInt32(self.randomSeed))
-        (self.rho, self.theta, self.phi) = coordGen(rho_scaling: 20 * AU)
+        self.position = coordGen(rho_scaling: 20 * AU)
         let numMoons = moonQtyGen(max_: config.maxMoons, min_:0)
         let numStations = random() % 10 == 0 ? 1 : 0
         for _ in 0..<numMoons{
@@ -305,9 +382,7 @@ class System:Uid{
     private let randomSeed: Int
     let id: Int
     
-    var rho: Double = 0
-    var theta: Double = 0
-    var phi: Double = 0
+    var position: SphericalPoint = SphericalPoint(0,0,0)
     
     var planets = [Planet]()
     var asteroids = [Asteroid]()
@@ -320,7 +395,7 @@ class System:Uid{
     func proceduralInit(){
         print("system \(self.id)")
         srandom(UInt32(self.randomSeed))
-        (self.rho, self.theta, self.phi) = coordGen(rho_scaling: 1.0e6 * PARSEC)
+        self.position = coordGen(rho_scaling: 1.0e6 * PARSEC)
         let numPlanets = planetQtyGen(max_: config.maxPlanets, min_:1)
         let numAsteroids = genericQtyGen(max_: config.maxAsteroids, min_:1)
         for _ in 0..<numPlanets{
@@ -346,9 +421,7 @@ class Galaxy:Uid{
     private let randomSeed: Int
     let id: Int
     
-    var rho: Double = 0
-    var theta: Double = 0
-    var phi: Double = 0
+    var position: SphericalPoint = SphericalPoint(0,0,0)
     
     var systems = [System]()
 
@@ -359,7 +432,7 @@ class Galaxy:Uid{
 
     func proceduralInit(){
         srandom(UInt32(self.randomSeed))
-        (self.rho, self.theta, self.phi) = coordGen(rho_scaling: 1.4e9 * PARSEC)
+        self.position = coordGen(rho_scaling: 1.4e9 * PARSEC)
         //let numSystems = genericQtyGen(max_: config.maxSystems, min_:1)
         let numSystems = max(1, random() % config.maxSystems)
         print("spawning \(numSystems) systems")

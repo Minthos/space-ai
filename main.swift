@@ -29,23 +29,14 @@ func main(){
 
     print("--- * * * * * * * ---")
     
-    var box1 = BBox(top: Point(99.99, 0.005, 3.14), bottom: Point(-1, -2, -1e18))
-    print(box1)
-    box1.potimize()
-    print(box1)
-    print(box1.selectQuadrant(0x00))
-    print(box1.selectQuadrant(0x15))
-    print(box1.selectQuadrant(0x2A))
-    print(box1.selectQuadrant(0x3F))
-    
-    
     print("--- * * * * * * * ---")
     let stations = world.allStations()
     print("\(stations.count) stations")
     var ships: [Int: Ship] = [:]
     for system in world.allSystems(){
         for station in system.stations(){
-            let ship = Ship(owner: "test", size: 10)
+            let ship = Ship(owner: "test", size: 10, system: system)
+            ship.position = station.position
             ships[ship.id] = ship
             print("spawned ship with id \(ship.id) at station with id \(station.id)")
         }
@@ -66,11 +57,22 @@ func main(){
 
     ////////////////////////////// RUNLOOP ////////////////////////////////////////
 
-    //while true {
-    //    print("zzz...")
-    //    sleep(1);
-    //}
+    while true {
+        for (id, ship) in ships{
+            ship.tick()
+        }
+    }
 }
 
 main()
 
+/*    
+    var box1 = BBox(top: Point(99.99, 0.005, 3.14), bottom: Point(-1, -2, -1e18))
+    print(box1)
+    box1.potimize()
+    print(box1)
+    print(box1.selectQuadrant(0x00))
+    print(box1.selectQuadrant(0x15))
+    print(box1.selectQuadrant(0x2A))
+    print(box1.selectQuadrant(0x3F))
+  */  

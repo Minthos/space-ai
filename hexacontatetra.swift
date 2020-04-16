@@ -15,33 +15,6 @@ func potimizeDouble(_ number: Double) -> Double{
     }
 }
 
-struct Point{
-    var x: Double
-    var y: Double
-    var z: Double
-
-    init(_ x: Double, _ y: Double, _ z: Double){
-        self.x = x
-        self.y = y
-        self.z = z
-    }
-
-//    init(_ xyz: (Double, Double, Double)){
-//        (self.x, self.y, self.z) = xyz
-//    }
-
-    // round each coordinate up to nearest power of 2
-    mutating func potimize(){
-        x = potimizeDouble(x)
-        y = potimizeDouble(y)
-        z = potimizeDouble(z)
-    }
-
-    func xyz() -> [Double] {
-        return [x, y, z]
-    }
-}
-
 struct BBox{
     var top: Point
     var bottom: Point
