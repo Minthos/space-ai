@@ -182,20 +182,6 @@ class CelestialObject:Uid{
     var positionCartesian: Point = Point(0,0,0)
 }
 
-/*
-    var minerals: Double = 0 // minerals are used for building ships, stations and heavy machinery
-    var gas: Double = 0 // gas is used for fuel, life support and synthetic materials
-    var precious: Double = 0 // precious elements are used in electronics and high tech equipment
-    var fuel: Double = 0 // used for spaceship propulsion
-    var lifeSupport: Double = 0 // keeps living things alive
-    var miningDrone: Double = 0 // used to harvest resources from asteroids, planets and moons
-    var spareParts: Double = 0 // used to repair all kinds of things
-    var weapons: Double = 0 // used to destroy all kinds of things
-    var spaceShip: Double = 0 // can fly around in space and carry stuff
-    var spaceStation: Double = 0 // conventient place to process resources and build things
-    var factory: Double = 0 // turns resources into everything except fuel and life support
-    var refinery: Double = 0 // turns gas into fuel and life support
-*/
 
 class CargoSpace{
     var capacity: Double = 0
@@ -326,7 +312,7 @@ class Ship:Uid{
             print("Error! ship is out of fuel!")
             return
         } else {
-            cargo.fuel -= 1.0
+            cargo.fuel -= 0.5
             self.positionCartesian = to
             self.position = toSpherical(self.positionCartesian)
         }
@@ -339,10 +325,7 @@ class Ship:Uid{
             if(availableSpace <= Double.epsilon || mineableResources <= 3 * Double.epsilon){
                 return
             }
-//            print("available space: \(availableSpace)")
-//            print("asteroid contents: \(roid.minerals) minerals, \(roid.gas) gas, \(roid.precious), precious.")
             let fractionToMine = min(1, (availableSpace - 1e-12) / mineableResources)
-//            print("fraction to mine: \(fractionToMine)")
             let mineMinerals = roid.minerals * fractionToMine
             let mineGas = roid.gas * fractionToMine
             let minePrecious = roid.precious * fractionToMine
@@ -352,9 +335,10 @@ class Ship:Uid{
             roid.gas -= mineGas
             self.cargo.precious += minePrecious
             roid.precious -= minePrecious
-//            print("mined \(mineMinerals) minerals, \(mineGas) gas, \(minePrecious), precious." +
-//                  "remaining cargo capacity: \(self.cargo.remainingCapacity()).")
-//            print("remaining resources on asteroid: \(roid.minerals) minerals, \(roid.gas) gas, \(roid.precious), precious.")
+
+            if(fractionToMine == 1){
+                self.currentSystem.depleteAsteroid(roid)
+            }
         } else {
             print("Error! out of mining range")
         }
@@ -403,14 +387,13 @@ class Ship:Uid{
             let stationCandidates = self.currentSystem.nearbyStations(to: self.positionCartesian)
             var station: Station? = nil
             for s in stationCandidates{
-                if(s.hold.fuel > 3.0){
+                if(s.hold.fuel > 3.0 || (self.cargo.gas >= 2.0 && s.modules.refinery >= 1.0)){
                     station = s
                     break
                 }
             }
-//            let station = self.currentSystem.findNearestStation(to: self.positionCartesian)
             if station == nil{
-                print("Error! nearest station not found!")
+                print("Error! no station found for refueling")
                 return
             }
             if(self.cargo.fuel >= 1.0){
@@ -472,7 +455,7 @@ class Station:CelestialObject{
         self.position = coordGen(rho_scaling: MAX_STATION_DISTANCE)
         self.position.rho += self.collisionRadius + parent.collisionRadius
         self.positionCartesian = toCartesian(self.position) + parent.positionCartesian
-        self.hold.fuel = 100.0
+        self.hold.fuel = 10.0
         self.modules.refinery = 10.0
         self.modules.factory = 10.0
     }
@@ -520,9 +503,12 @@ class Asteroid{
         if type % 16 == 0{
             precious = Double(random()) / Double(RAND_MAX)
         }
-        minerals *= 1e3
-        gas *= 1e3
-        precious *= 1e3
+        //minerals *= 1e3
+        //gas *= 1e3
+        //precious *= 1e3
+        minerals *= 10
+        gas *= 10
+        precious *= 10
     }
 }
 
@@ -657,6 +643,7 @@ class System:CelestialObject{
         return planets.flatMap{ $0.stations + $0.moons.flatMap{ $0.stations } }
     }
 
+    
     // TODO: replace this with an octree version because this is going to be damn slow when the number of ships gets non-trivial
     func findNearestAsteroid(to: Point) -> Asteroid? {
         var nearest: Asteroid? = nil
@@ -668,18 +655,16 @@ class System:CelestialObject{
         return nearest
     }
     
-    func findNearestStation(to: Point) -> Station? {
-        var nearest: Station? = nil
-        for s in stations() {
-            if nearest == nil || distance(to, s.positionCartesian) < distance(to, nearest!.positionCartesian){
-                nearest = s
-            }
-        }
-        return nearest
+    func nearbyAsteroids(to: Point) -> [Asteroid] {
+        return(asteroids.sorted(by: { distance(to, $0.positionCartesian) < distance(to, $1.positionCartesian) } ))
     }
 
     func nearbyStations(to: Point) -> [Station] {
         return(stations().sorted(by: { distance(to, $0.positionCartesian) < distance(to, $1.positionCartesian) } ))
+    }
+
+    func depleteAsteroid(_ roid: Asteroid) {
+        self.asteroids.removeAll(where: { $0 === roid })
     }
 }
 
