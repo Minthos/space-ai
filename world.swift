@@ -12,6 +12,13 @@ let LY = 9.461e15
 let AU = 1.496e11
 let KM = 1e3
 
+let UNIVERSE_RADIUS = 1.4e9 * PARSEC
+let GALAXY_RADIUS = 1e6 * PARSEC
+let SYSTEM_RADIUS = 100 * AU
+let PLANET_RADIUS = 1e8 * KM
+let MAX_STATION_DISTANCE = 1e6 * KM
+
+
 ////////////////////////////// CONFIG /////////////////////////////////////////
 
 let configString = """
@@ -143,12 +150,24 @@ func ** (num: Double, power: Double) -> Double{
 }
 
 class Uid{
+    let id: Int
+
     static var count: Int = 0
     class func getNewId() -> Int{
         let rax = count
         count += 1
         return rax
     }
+
+    init(){
+        self.id = Uid.getNewId()
+    }
+}
+
+class CelestialObject:Uid{
+    var collisionRadius: Double = 0.0
+    var position: SphericalPoint = SphericalPoint(0,0,0)
+    var positionCartesian: Point = Point(0,0,0)
 }
 
 class CargoSpace{
@@ -211,19 +230,19 @@ enum Command{
 }
 
 class Ship:Uid{
-    let id: Int
     var cargo: CargoSpace
     var owner: String
     var commandQueue: [Command] = []
 
+    var collisionRadius: Double
     var currentSystem: System
     var position: SphericalPoint
     var positionCartesian: Point
 
     init(owner: String, size: Double, system: System){
-        self.id = Ship.getNewId()
         self.owner = owner
         self.cargo = CargoSpace(capacity: size)
+        self.collisionRadius = size
         self.currentSystem = system
         self.position = SphericalPoint(0,0,0)
         self.positionCartesian = toCartesian(self.position)
@@ -286,35 +305,31 @@ class Ship:Uid{
     }
 }
 
-class Station:Uid{
-    let id: Int
+class Station:CelestialObject{
     let hold: CargoSpace
     var owner: String = ""
-
-    var position: SphericalPoint = SphericalPoint(0,0,0)
-    var positionCartesian: Point = Point(0,0,0)
 
     var minerals: Double = 0
     var gas: Double = 0
     var precious: Double = 0
 
     init(seed: Int){
-        self.id = Station.getNewId()
         self.hold = CargoSpace(capacity: config.stationDefaultCapacity)
     }
 
-    func proceduralInit(offset: Point){
+    func proceduralInit(parent: CelestialObject){
         print("Space Station!")
-        self.position = coordGen(rho_scaling: 1e6 * KM)
-        // TODO: add offset of planet/moon to cartesian position
-        self.positionCartesian = toCartesian(self.position) + offset
+        self.position = coordGen(rho_scaling: MAX_STATION_DISTANCE)
+        self.position.rho += self.collisionRadius + parent.collisionRadius
+        self.positionCartesian = toCartesian(self.position) + parent.positionCartesian
     }
 }
 
 class Asteroid{
     private let randomSeed: Int!
     let id: Int
-
+    
+    var collisionRadius: Double = 0.0
     var position: SphericalPoint = SphericalPoint(0,0,0)
     var positionCartesian: Point = Point(0,0,0)
 
@@ -327,10 +342,11 @@ class Asteroid{
         self.id = id
     }
 
-    func proceduralInit(){
+    func proceduralInit(parent: System){
         srandom(UInt32(self.randomSeed))
-        
-        self.position = coordGen(rho_scaling: 100 * AU)
+        self.collisionRadius = 10 * KM
+        self.position = coordGen(rho_scaling: SYSTEM_RADIUS)
+        self.position.rho += self.collisionRadius + parent.collisionRadius
         self.positionCartesian = toCartesian(self.position)
 
         let type = random()
@@ -343,15 +359,14 @@ class Asteroid{
         if type % 16 == 0{
             precious = Double(random()) / Double(RAND_MAX)
         }
+        minerals *= 1e3
+        gas *= 1e3
+        precious *= 1e3
     }
 }
 
-class Moon:Uid{
+class Moon:CelestialObject{
     private let randomSeed: Int
-    let id: Int
-    
-    var position: SphericalPoint = SphericalPoint(0,0,0)
-    var positionCartesian: Point = Point(0,0,0)
     
     var minerals: Double = 0
     var gas: Double = 0
@@ -361,19 +376,20 @@ class Moon:Uid{
 
     init(seed: Int){
         self.randomSeed = seed
-        self.id = Moon.getNewId()
     }
 
-    func proceduralInit(planet: Planet){
+    func proceduralInit(parent: Planet){
         srandom(UInt32(self.randomSeed))
-        self.position = coordGen(rho_scaling: 1e8 * KM)
-        self.positionCartesian = toCartesian(self.position) + planet.positionCartesian
+        self.collisionRadius = 1.7e3 * KM
+        self.position = coordGen(rho_scaling: PLANET_RADIUS)
+        self.position.rho += self.collisionRadius + parent.collisionRadius
+        self.positionCartesian = toCartesian(self.position) + parent.positionCartesian
         let numStations = random() % 100 == 0 ? 1 : 0
         for _ in 0..<numStations{
             stations.append(Station(seed: random()))
         }
         for i in 0..<numStations{
-            stations[i].proceduralInit(offset: self.positionCartesian)
+            stations[i].proceduralInit(parent: self)
         }
 
         let type = random()
@@ -387,18 +403,14 @@ class Moon:Uid{
             precious = Double(random()) / Double(RAND_MAX)
         }
 
-        minerals = minerals * 1e4
-        gas = gas * 1e4
-        precious = precious * 1e2
+        minerals = minerals * 1e7
+        gas = gas * 1e7
+        precious = precious * 1e5
     }
 }
 
-class Planet:Uid{
+class Planet:CelestialObject{
     private let randomSeed: Int
-    let id: Int
-    
-    var position: SphericalPoint = SphericalPoint(0,0,0)
-    var positionCartesian: Point = Point(0,0,0)
     
     var minerals: Double = 0
     var gas: Double = 0
@@ -409,12 +421,13 @@ class Planet:Uid{
 
     init(seed: Int){
         self.randomSeed = seed
-        self.id = Planet.getNewId()
     }
 
-    func proceduralInit(){
+    func proceduralInit(parent: System){
         srandom(UInt32(self.randomSeed))
-        self.position = coordGen(rho_scaling: 20 * AU)
+        self.collisionRadius = 6.4e3 * KM
+        self.position = coordGen(rho_scaling: 0.2 * SYSTEM_RADIUS)
+        self.position.rho += self.collisionRadius + parent.collisionRadius
         self.positionCartesian = toCartesian(self.position)
         let numMoons = moonQtyGen(max_: config.maxMoons, min_:0)
         let numStations = random() % 10 == 0 ? 1 : 0
@@ -425,10 +438,10 @@ class Planet:Uid{
             stations.append(Station(seed: random()))
         }
         for i in 0..<numMoons{
-            moons[i].proceduralInit(planet: self)
+            moons[i].proceduralInit(parent: self)
         }
         for i in 0..<numStations{
-            stations[i].proceduralInit(offset: self.positionCartesian)
+            stations[i].proceduralInit(parent: self)
         }
 
         let type = random()
@@ -440,30 +453,29 @@ class Planet:Uid{
             gas = Double(random()) / Double(RAND_MAX)
         }
 
-        minerals = minerals * 1e5
-        gas = gas * 1e5
-        precious = precious * 1e2
+        minerals = minerals * 1e8
+        gas = gas * 1e8
+        precious = precious * 1e5
     }
 }
 
-class System:Uid{
+class System:CelestialObject{
     private let randomSeed: Int
-    let id: Int
-    
-    var position: SphericalPoint = SphericalPoint(0,0,0)
+    let spatialTree: HctTree = HctTree(initialSize: SYSTEM_RADIUS)
     
     var planets = [Planet]()
     var asteroids = [Asteroid]()
 
     init(seed: Int){
         self.randomSeed = seed
-        self.id = System.getNewId()
     }
 
-    func proceduralInit(){
+    func proceduralInit(parent: Galaxy){
         print("system \(self.id)")
         srandom(UInt32(self.randomSeed))
-        self.position = coordGen(rho_scaling: 1.0e6 * PARSEC)
+        self.collisionRadius = 7e5 * KM
+        self.position = coordGen(rho_scaling: GALAXY_RADIUS)
+        self.position.rho += self.collisionRadius + parent.collisionRadius
         let numPlanets = planetQtyGen(max_: config.maxPlanets, min_:1)
         let numAsteroids = genericQtyGen(max_: config.maxAsteroids, min_:1)
         for _ in 0..<numPlanets{
@@ -473,10 +485,10 @@ class System:Uid{
             asteroids.append(Asteroid(seed: random(), id: i))
         }
         for i in 0..<numPlanets{
-            planets[i].proceduralInit()
+            planets[i].proceduralInit(parent: self)
         }
         for i in 0..<numAsteroids{
-            asteroids[i].proceduralInit()
+            asteroids[i].proceduralInit(parent: self)
         }
     }
     
@@ -508,22 +520,20 @@ class System:Uid{
 
 }
 
-class Galaxy:Uid{
+class Galaxy:CelestialObject{
     private let randomSeed: Int
-    let id: Int
-    
-    var position: SphericalPoint = SphericalPoint(0,0,0)
+    let spatialTree: HctTree = HctTree(initialSize: GALAXY_RADIUS)
     
     var systems = [System]()
 
     init(seed: Int){
         self.randomSeed = seed
-        self.id = Galaxy.getNewId()
     }
 
-    func proceduralInit(){
+    func proceduralInit(parent: Universe){
         srandom(UInt32(self.randomSeed))
-        self.position = coordGen(rho_scaling: 1.4e9 * PARSEC)
+        self.collisionRadius = 2.2e7 * KM
+        self.position = coordGen(rho_scaling: UNIVERSE_RADIUS)
         //let numSystems = genericQtyGen(max_: config.maxSystems, min_:1)
         let numSystems = max(1, random() % config.maxSystems)
         print("spawning \(numSystems) systems")
@@ -532,7 +542,7 @@ class Galaxy:Uid{
         }
         print("configuring systems")
         for i in 0..<numSystems{
-            systems[i].proceduralInit()
+            systems[i].proceduralInit(parent: self)
         }
         print("\(numSystems) systems ready")
     }
@@ -540,6 +550,7 @@ class Galaxy:Uid{
 
 class Universe{
     private let randomSeed: Int
+    let spatialTree: HctTree = HctTree(initialSize: UNIVERSE_RADIUS)
     var galaxies = [Galaxy]()
 
     init(seed: Int){
@@ -555,7 +566,7 @@ class Universe{
         }
         print("configuring \(numGalaxies) galaxies")
         for i in 0..<numGalaxies{
-            self.galaxies[i].proceduralInit()
+            self.galaxies[i].proceduralInit(parent: self)
         }
         print("\(numGalaxies) galaxies ready")
     }
