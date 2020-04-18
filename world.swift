@@ -131,6 +131,14 @@ struct Point{
     }
 }
 
+postfix func --(value: inout Int) {
+    value -= 1
+}
+
+postfix func ++(value: inout Int) {
+    value += 1
+}
+
 func +(left: Point, right: Point) -> Point {
     return Point(left.x + right.x, left.y + right.y, left.z + right.z)
 }

@@ -69,9 +69,16 @@ struct BBox{
     }
 }
 
+struct HctItem{
+    let position: Point
+    let data: AnyObject
+}
+
 // TODO: complete implementation
 // TODO: optimize
 class HctTree{
+    // MAXDEPTH is 26 because Double only has 53 bits of precision and each level represents 2 bits of spatial resolution
+    static let MAXDEPTH = 26
     var numItems: Int = 0
     var root: HctNode = HctNode()
     var dims: BBox = BBox(top: Point(0, 0, 0), bottom: Point(0, 0, 0))
@@ -102,8 +109,8 @@ class HctTree{
     func resolve(_ position: Point) -> [UInt8]{
         var rax: [UInt8] = []
         var box = dims
-        // 26 because Double only has 53 bits of precision. Should break out earlier if possible. (TODO)
-        for _ in 0..<26 {
+        // MAXDEPTH is 26 because Double only has 53 bits of precision. Should break out earlier if possible. (TODO)
+        for _ in 0..<HctTree.MAXDEPTH {
             let quadrant = index6bit(top: box.top, bottom:box.bottom, point:position)
             rax.append(UInt8(quadrant))
             box = box.selectQuadrant(quadrant)
@@ -114,31 +121,88 @@ class HctTree{
         return rax
     }
 
-    func addLayer(){
-        
-    }
-
     func insert(item: AnyObject, position: Point){
         if !dims.contains(position){
-            // TODO: panic! just kidding.. just make the tree deeper
-            // btw the following is not the complete solution, it's also necessary to create new nodes:
+            print("PANIC! attempting to insert object outside the bounds of the spatial tree: \(position)")
+            /*
             let absElements = position.xyz().map({ abs($0) })
             var extent = absElements.reduce(0, { a, b in max(a, b) })
             extent = potimizeDouble(extent)
             self.dims = BBox(top: Point(extent, extent, extent), bottom:(Point(-extent, -extent, -extent)))
+            */
         }
-       
-        root.data.append(item)
-        numItems += 1
+        let path = resolve(position)
+        var leaf = root
+        var depth = 0
+
+        while(true){
+            if(leaf.bit_field == 0){
+                // we have found a leaf node and can insert the item
+                leaf.data.append(HctItem(item, position))
+                // max one item per leaf node unless we are at max depth
+                if(leaf.data.count > 1 && depth < HctTree.MAXDEPTH){
+                    leaf.subdivide(path: path, depth: depth)
+                }
+                numItems++
+                return
+            }
+
+            // descend deeper in the tree
+            let index = Int(path[depth])
+            if(leaf.bit_field & (1 << index)){
+                let decoded = leaf.decode()
+                for i in 0..<decoded.count{
+                    if(decoded[i] == index){
+                        leaf = leaf.children[i]
+                        break
+                    }
+                }
+            } else {
+                let newNode = HctNode()
+                leaf.bit_field |= (1 << index)
+                let decoded = leaf.decode()
+                for i in 0..<decoded.count{
+                    if(decoded[i] == index){
+                        leaf.children.insert(newNode, at: i)
+                        leaf = newNode
+                        break
+                    }
+                }
+            }
+            depth++
+        }
     }
 
     func remove(item: AnyObject, position: Point){
-        if let i = root.data.firstIndex(where: { $0 === item } ){
-            root.data.remove(at: i)
-            numItems -= 1
-        } else {
-            print("Can't remove element that isn't there!")
-            // TODO: add more functionality
+        let path = resolve(position)
+        var prev: HctNode? = nil
+        var leaf = root
+        var depth = 0
+
+        while(true){
+            if(leaf.bit_field == 0){
+                // we have found a leaf node and should find the item
+                leaf.data.removeAll(where: { $0.data === item })
+                if(prev != nil){
+                    prev.prune(leaf, Int(path[depth]))
+                }
+                numItems--
+                return
+            }
+
+            // descend deeper in the tree
+            let index = Int(path[depth])
+            if(leaf.bit_field & (1 << index)){
+                let decoded = leaf.decode()
+                for i in 0..<decoded.count{
+                    if(decoded[i] == index){
+                        prev = leaf
+                        leaf = leaf.children[i]
+                        break
+                    }
+                }
+            }
+            depth++
         }
     }
 
@@ -156,8 +220,39 @@ class HctTree{
 class HctNode{
     var bit_field: UInt64 = 0
     var children: [HctNode] = []
-    var data: [AnyObject] = []
-   
+    var data: [HctItem] = []
+
+    func subdivide(depth: Int) {
+        var collisions: [HctNode] = []
+        let indices = data.map({ Int(resolve($0)[depth]!) })
+        let pairs = zip(indices, data).sorted(by: { $0[0] < $1[0] } )
+        for index, item in pairs{
+            if(bit_field & (1 << i) != 0){
+                children[index]!.data.append(item)
+                if( !collisions.contains(where: { $0 === children[index]! })
+                    collisions.append(children[index]!)
+                }
+            }
+            else {
+                bit_field |= (1 << i)
+                let newNode = HctNode()
+                children.append(newNode)
+                newNode.data.append(item)
+            }
+        }
+        for c in collisions{
+            c.subdivide(depth: depth+1)
+        }
+    }
+
+    func prune(_ node: HctNode, _ index: Int){
+        if(bit_field & (1 << index) == 0){
+            print("!!! Error! trying to prune node that isn't in bit_field")
+        }
+        bit_field ^= (1 << index)
+        children.remove(at: index)
+    }
+
     // expects a bit field with a single bit set to high
     // returns the index of that bit
     func whichBit(input: UInt64) -> Int {
