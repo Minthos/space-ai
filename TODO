@@ -1,10 +1,5 @@
 
 
-generating basic dumb commands automatically (in progress)
-test movement system and coordinate transforms
-refueling
-unloading
-resource harvesting
 finish the octree stub implementation (no need to make it an actual octree until we run into performance issues)
 do the octree stuff because finding nearest asteroid is going to be very costly once stuff starts happening
 

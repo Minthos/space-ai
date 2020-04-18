@@ -23,8 +23,7 @@ func main(){
     var ships: [Int: Ship] = [:]
     for system in world.allSystems(){
         for station in system.stations(){
-            let ship = Ship(owner: "test", size: 10, system: system)
-//            ship.position = station.position
+            let ship = Ship(owner: "test", size: 10, positionCartesian:station.positionCartesian, system: system)
             ships[ship.id] = ship
             print("spawned ship with id \(ship.id) at station with id \(station.id)")
         }
@@ -35,11 +34,18 @@ func main(){
     ////////////////////////////// RUNLOOP ////////////////////////////////////////
 
     var loop_counter: Int = 0
-    while loop_counter < 1 {
+    while loop_counter < 300 {
         for (_, ship) in ships{
             ship.tick()
         }
+        for station in stations{
+            station.tick()
+        }
         loop_counter += 1
+        print("tick \(loop_counter)")
+    }
+    for station in stations{
+        print(station.hold.contents)
     }
 }
 
