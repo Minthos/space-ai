@@ -4,6 +4,15 @@
 
 
 import Foundation
+    
+var ships: [Int: Ship] = [:]
+
+func spawnSpaceShip(at: Station, owner: String, size: Double, system: System){
+    let ship = Ship(owner: owner, size: size, positionCartesian:at.positionCartesian, system: system)
+    ships[ship.id] = ship
+    system.shipsRegistry.insert(item: ship, position: ship.positionCartesian)
+    print("spawned ship size \(size) with id \(ship.id) at station with id \(at.id)")
+}
 
 func main(){
     ////////////////////////////// INITIALIZATION /////////////////////////////////
@@ -20,13 +29,9 @@ func main(){
 
     let stations = world.allStations()
     print("\(stations.count) stations")
-    var ships: [Int: Ship] = [:]
     for system in world.allSystems(){
         for station in system.stations(){
-            let ship = Ship(owner: "test", size: 10, positionCartesian:station.positionCartesian, system: system)
-            ships[ship.id] = ship
-            system.shipsRegistry.insert(item: ship, position: ship.positionCartesian)
-            print("spawned ship with id \(ship.id) at station with id \(station.id)")
+            spawnSpaceShip(at: station, owner: "test", size: 10, system: system)
         }
     }
 
@@ -41,12 +46,17 @@ func main(){
         }
         for station in stations{
             station.tick()
+            if(station.hold.spaceShip > 30){
+                spawnSpaceShip(at: station, owner: "test", size: 30, system: station.system)
+                station.hold.spaceShip -= 30
+            }
         }
         loop_counter += 1
         print("tick \(loop_counter)")
     }
     for station in stations{
-        print(station.hold.contents)
+        print(station.hold.resources)
+        print("fuel: \(station.hold.fuel), spaceship: \(station.hold.spaceShip), refinery: \(station.modules.refinery), factory: \(station.modules.factory)")
     }
 }
 

@@ -31,7 +31,7 @@ let configString = """
     "maxPlanets": 40,
     "maxMoons": 100,
     "maxAsteroids": 10000,
-    "stationDefaultCapacity": 1000,
+    "stationDefaultCapacity": 10000,
     "stationDefaultModuleCapacity": 100,
     "miningRange": 100.0,
     "dockingRange": 100.0,
@@ -46,10 +46,20 @@ let configString = """
     "labCost": {"minerals": 0.5, "gas": 0.3, "precious": 0.2}
 }
 """
-class ResourceAmount: Decodable{
-    let minerals: Double
-    let gas: Double
-    let precious: Double
+struct ResourceAmount: Decodable{
+    var minerals: Double
+    var gas: Double
+    var precious: Double
+
+    init(_ minerals: Double, _ gas: Double, _ precious: Double){
+        self.minerals = minerals
+        self.gas = gas
+        self.precious = precious
+    }
+
+    func values() -> [Double] {
+        return [minerals, gas, precious]
+    }
 }
 
 class Config: Decodable{
@@ -169,6 +179,38 @@ postfix func ++(value: inout Int) {
     value += 1
 }
 
+func /(left: ResourceAmount, right: Double) -> ResourceAmount {
+    return ResourceAmount(left.minerals / right, left.gas / right, left.precious / right)
+}
+
+func *(left: ResourceAmount, right: Double) -> ResourceAmount {
+    return ResourceAmount(left.minerals * right, left.gas * right, left.precious * right)
+}
+
+func /(left: ResourceAmount, right: ResourceAmount) -> ResourceAmount {
+    return ResourceAmount(left.minerals / right.minerals, left.gas / right.gas, left.precious / right.precious)
+}
+
+func *(left: ResourceAmount, right: ResourceAmount) -> ResourceAmount {
+    return ResourceAmount(left.minerals * right.minerals, left.gas * right.gas, left.precious * right.precious)
+}
+
+func -(left: ResourceAmount, right: ResourceAmount) -> ResourceAmount {
+    return ResourceAmount(left.minerals - right.minerals, left.gas - right.gas, left.precious - right.precious)
+}
+
+func +(left: ResourceAmount, right: ResourceAmount) -> ResourceAmount {
+    return ResourceAmount(left.minerals + right.minerals, left.gas + right.gas, left.precious + right.precious)
+}
+
+func <(left: ResourceAmount, right: ResourceAmount) -> Bool {
+    return (left.minerals < right.minerals || left.gas < right.gas || left.precious < right.precious)
+}
+
+func >(left: ResourceAmount, right: ResourceAmount) -> Bool {
+    return (left.minerals > right.minerals && left.gas > right.gas && left.precious > right.precious)
+}
+
 func +(left: Point, right: Point) -> Point {
     return Point(left.x + right.x, left.y + right.y, left.z + right.z)
 }
@@ -280,6 +322,11 @@ class CargoSpace{
         set { contents["precious"] = newValue }
     }
     
+    var resources: ResourceAmount {
+        get { return ResourceAmount(self.minerals, self.gas, self.precious) }
+        set { self.minerals = newValue.minerals; self.gas = newValue.gas; self.precious = newValue.precious }
+    }
+
     var lifeSupport: Double {
         get { return contents["lifeSupport"]! }
         set { contents["lifeSupport"] = newValue }
@@ -290,6 +337,26 @@ class CargoSpace{
         set { contents["miningDrone"] = newValue }
     }
 
+    var spareParts: Double {
+        get { return contents["spareParts"]! }
+        set { contents["spareParts"] = newValue }
+    }
+
+    var weapons: Double {
+        get { return contents["weapons"]! }
+        set { contents["weapons"] = newValue }
+    }
+
+    var spaceShip: Double {
+        get { return contents["spaceShip"]! }
+        set { contents["spaceShip"] = newValue }
+    }
+
+    var spaceStation: Double {
+        get { return contents["spaceStation"]! }
+        set { contents["spaceStation"] = newValue }
+    }
+    
     var factory: Double {
         get { return contents["factory"]! }
         set { contents["factory"] = newValue }
@@ -298,6 +365,11 @@ class CargoSpace{
     var refinery: Double {
         get { return contents["refinery"]! }
         set { contents["refinery"] = newValue }
+    }
+        
+    var researchLab: Double {
+        get { return contents["researchLab"]! }
+        set { contents["researchLab"] = newValue }
     }
 
     init(capacity: Double){
@@ -435,7 +507,9 @@ class Ship:Uid{
             self.cargo.fuel += amount
             if(self.cargo.fuel < targetAmount){
                 print("Error! refueling failed! station fuel level: \(station.hold.fuel), cargo capacity: \(self.cargo.remainingCapacity())")
-                print("\(self.cargo.contents)")
+                print("cargo: \(self.cargo.contents)")
+                print("hold: \(station.hold.contents)")
+                print("modules: \(station.modules.contents)")
             }
         }
         else {
@@ -449,11 +523,14 @@ class Ship:Uid{
 
     func generateCommands(){
         if(self.cargo.remainingCapacity() < 1.0 || self.cargo.fuel < 2.0){
-            let stationCandidates = self.currentSystem.nearbyStations(to: self.positionCartesian)
+            var stationCandidates = self.currentSystem.nearbyStations(to: self.positionCartesian)
+            if(distance(stationCandidates[0].positionCartesian, self.positionCartesian) > config.dockingRange){
+                stationCandidates.shuffle()
+            }
             var station: Station? = nil
             for s in stationCandidates{
-                if (s.hold.remainingCapacity() > self.cargo.contents.values.sum()) &&
-                (s.hold.fuel > 3.0 || (self.cargo.gas >= 2.0 && s.modules.refinery >= 1.0)){
+                if (s.hold.remainingCapacity() - 1e-15 > self.cargo.resources.values().sum()) &&
+                (s.hold.fuel > 3.0 || (s.hold.gas < 2.0 && self.cargo.gas >= 2.0 && s.modules.refinery >= 1.0)){
                     station = s
                     break
                 }
@@ -507,6 +584,7 @@ class Ship:Uid{
 }
 
 enum StationCommand{
+    case refine(Double)
     case buildShip(Double)
     case buildFactory(Double)
     case buildRefinery(Double)
@@ -518,12 +596,14 @@ enum StationCommand{
 class Station:CelestialObject{
     let hold: CargoSpace
     let modules: CargoSpace
+    let system: System
     var owner: String = ""
     var commandQueue: [StationCommand] = []
 
-    init(seed: Int){
+    init(seed: Int, system: System){
         self.hold = CargoSpace(capacity: config.stationDefaultCapacity)
         self.modules = CargoSpace(capacity: config.stationDefaultModuleCapacity)
+        self.system = system
     }
 
     func proceduralInit(parent: CelestialObject){
@@ -537,15 +617,31 @@ class Station:CelestialObject{
     }
     
     func generateCommands(){
-        // TODO
+        if(self.hold.fuel < (10 + self.modules.refinery) &&
+           self.hold.gas > (3 * self.modules.refinery) &&
+           self.hold.resources > config.refineryCost){
+            self.commandQueue.append(StationCommand.buildRefinery(1))
+            self.commandQueue.append(StationCommand.refine(min(self.hold.gas, self.modules.refinery+1)))
+            self.commandQueue.append(StationCommand.refine(min(self.hold.gas, self.modules.refinery+1)))
+            self.commandQueue.append(StationCommand.refine(min(self.hold.gas, self.modules.refinery+1)))
+        } else if((self.hold.fuel < 10) && (self.hold.gas > 0)){
+            self.commandQueue.append(StationCommand.refine(min(self.hold.gas, self.modules.refinery)))
+        } else if self.hold.resources > config.shipCost{
+            self.commandQueue.append(StationCommand.buildShip(50))
+        }
+    }
+
+    func build(key: String, target: Double, cost:ResourceAmount){
+        let remaining = target - self.hold.contents[key]!
+        let maxCanBuild = (self.hold.resources / cost).values().min()!
+        let willBuild = min(maxCanBuild, remaining, self.modules.factory * config.productionRate)
+        if willBuild > 0{
+            self.hold.resources = self.hold.resources - (cost * willBuild)
+            self.hold.contents[key]! += willBuild
+        }
     }
 
     func tick() {
-        let amountToRefine = min(self.modules.refinery, self.hold.gas)
-        if(amountToRefine > 0){
-            self.hold.gas -= amountToRefine
-            self.hold.fuel += amountToRefine
-        }
         if(commandQueue.count == 0){
             self.generateCommands()
         }
@@ -553,15 +649,19 @@ class Station:CelestialObject{
             let action = commandQueue[0]
             commandQueue.removeFirst()
             switch(action){
+            case .refine(let target):
+                let amountToRefine = min(self.modules.refinery, self.hold.gas, target - self.hold.fuel)
+                if(amountToRefine > 0){
+                    self.hold.gas -= amountToRefine
+                    self.hold.fuel += amountToRefine
+                }
             case .buildShip(let target):
-                let remaining = target - self.hold.contents["spaceShip"]!
-//                let resourceLimit = 
-//                let amountToProduce = min(config.productionRate * self.modules.factory, remaining,)
+                build(key: "spaceShip", target: target, cost:config.shipCost)
             case .buildFactory(let target):
                 assert(false)
             case .buildRefinery(let target):
-                assert(false)
-                
+                build(key: "refinery", target: target, cost:config.refineryCost)
+                self.hold.transfer(items: ["refinery"], to:self.modules)
             case .buildStation(let target):
                 assert(false)
                 
@@ -632,7 +732,7 @@ class Moon:CelestialObject{
         self.randomSeed = seed
     }
 
-    func proceduralInit(parent: Planet){
+    func proceduralInit(parent: Planet, system: System){
         srandom(UInt32(self.randomSeed))
         self.collisionRadius = 1.7e3 * KM
         self.position = coordGen(rho_scaling: PLANET_RADIUS)
@@ -640,7 +740,7 @@ class Moon:CelestialObject{
         self.positionCartesian = toCartesian(self.position) + parent.positionCartesian
         let numStations = random() % 100 == 0 ? 1 : 0
         for _ in 0..<numStations{
-            stations.append(Station(seed: random()))
+            stations.append(Station(seed: random(), system:system))
         }
         for i in 0..<numStations{
             stations[i].proceduralInit(parent: self)
@@ -689,10 +789,10 @@ class Planet:CelestialObject{
             moons.append(Moon(seed: random()))
         }
         for _ in 0..<numStations{
-            stations.append(Station(seed: random()))
+            stations.append(Station(seed: random(), system: parent))
         }
         for i in 0..<numMoons{
-            moons[i].proceduralInit(parent: self)
+            moons[i].proceduralInit(parent: self, system: parent)
         }
         for i in 0..<numStations{
             stations[i].proceduralInit(parent: self)
