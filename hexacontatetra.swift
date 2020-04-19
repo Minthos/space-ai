@@ -70,8 +70,8 @@ struct BBox{
 }
 
 struct HctItem{
-    let position: Point
     let data: AnyObject
+    let position: Point
 }
 
 // TODO: complete implementation
@@ -138,10 +138,10 @@ class HctTree{
         while(true){
             if(leaf.bit_field == 0){
                 // we have found a leaf node and can insert the item
-                leaf.data.append(HctItem(item, position))
+                leaf.data.append(HctItem(data: item, position: position))
                 // max one item per leaf node unless we are at max depth
                 if(leaf.data.count > 1 && depth < HctTree.MAXDEPTH){
-                    leaf.subdivide(path: path, depth: depth)
+                    leaf.subdivide(depth: depth, tree: self)
                 }
                 numItems++
                 return
@@ -149,7 +149,7 @@ class HctTree{
 
             // descend deeper in the tree
             let index = Int(path[depth])
-            if(leaf.bit_field & (1 << index)){
+            if(leaf.bit_field & (1 << index) != 0){
                 let decoded = leaf.decode()
                 for i in 0..<decoded.count{
                     if(decoded[i] == index){
@@ -184,7 +184,7 @@ class HctTree{
                 // we have found a leaf node and should find the item
                 leaf.data.removeAll(where: { $0.data === item })
                 if(prev != nil){
-                    prev.prune(leaf, Int(path[depth]))
+                    prev!.prune(leaf, Int(path[depth]))
                 }
                 numItems--
                 return
@@ -192,7 +192,7 @@ class HctTree{
 
             // descend deeper in the tree
             let index = Int(path[depth])
-            if(leaf.bit_field & (1 << index)){
+            if(leaf.bit_field & (1 << index) != 0){
                 let decoded = leaf.decode()
                 for i in 0..<decoded.count{
                     if(decoded[i] == index){
@@ -222,26 +222,26 @@ class HctNode{
     var children: [HctNode] = []
     var data: [HctItem] = []
 
-    func subdivide(depth: Int) {
+    func subdivide(depth: Int, tree: HctTree) {
         var collisions: [HctNode] = []
-        let indices = data.map({ Int(resolve($0)[depth]!) })
-        let pairs = zip(indices, data).sorted(by: { $0[0] < $1[0] } )
-        for index, item in pairs{
-            if(bit_field & (1 << i) != 0){
-                children[index]!.data.append(item)
-                if( !collisions.contains(where: { $0 === children[index]! })
-                    collisions.append(children[index]!)
+        let indices = data.map({ Int(tree.resolve($0.position)[depth]) })
+        let pairs = zip(indices, data).sorted(by: { $0.0 < $1.0 } )
+        for (index, item) in pairs{
+            if(bit_field & (1 << index) != 0){
+                children[index].data.append(item)
+                if( !collisions.contains(where: { $0 === children[index] })) {
+                    collisions.append(children[index])
                 }
             }
             else {
-                bit_field |= (1 << i)
+                bit_field |= (1 << index)
                 let newNode = HctNode()
                 children.append(newNode)
                 newNode.data.append(item)
             }
         }
         for c in collisions{
-            c.subdivide(depth: depth+1)
+            c.subdivide(depth: depth+1, tree: tree)
         }
     }
 
