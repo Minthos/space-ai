@@ -18,6 +18,10 @@ func potimizeDouble(_ number: Double) -> Double{
     }
 }
 
+func hexString(_ number: UInt64) -> String {
+    return String(format: "%llx", number)
+}
+
 struct BBox{
     var top: Point
     var bottom: Point
@@ -140,11 +144,14 @@ class HctTree<T: AnyObject>{
             if(leaf.bit_field == 0){
                 // we have found a leaf node and can insert the item
                 leaf.data.append(HctItem(data: item, position: position))
+                print("inserted item at depth \(depth)")
+                print("leaf data count: \(leaf.data.count) bit_field: " + String(format: "%llx", leaf.bit_field))
                 // max one item per leaf node unless we are at max depth
                 if(leaf.data.count > 1 && depth < MAXDEPTH){
                     leaf.subdivide(depth: depth, tree: self)
                 }
                 numItems++
+                print("numItems: \(numItems)")
                 return
             }
 
@@ -207,9 +214,9 @@ class HctTree<T: AnyObject>{
         }
     }
 
-    func relocate(item: T, currentPosition: Point, newPosition: Point){
-        remove(item: item, position:currentPosition)
-        insert(item: item, position:newPosition)
+    func relocate(item: T, from: Point, to: Point){
+        remove(item: item, position:from)
+        insert(item: item, position:to)
     }
 
     func lookup(region: BBox) -> [T] {
@@ -224,18 +231,34 @@ class HctNode<T: AnyObject>{
     var data: [HctItem<T>] = []
 
     func subdivide(depth: Int, tree: HctTree<T>) {
+        print("subdivide! depth \(depth)")
         var collisions: [HctNode<T>] = []
+        var numCollisions = 0
+        var prevIndex = -1
         let indices = data.map({ Int(tree.resolve($0.position)[depth]) })
         let pairs = zip(indices, data).sorted(by: { $0.0 < $1.0 } )
-        for (index, item) in pairs{
+        print("pairs: \(pairs)")
+
+        for i in 0..<pairs.count{
+//        for i, (index, item) in pairs{
+            let (index, item) = pairs[i]
+            if prevIndex == index{
+                numCollisions++
+            }
+            prevIndex = index
+            print("bit_field: \(hexString(bit_field)), 1 << index: \(hexString(1 << index))")
             if(bit_field & (1 << index) != 0){
-                children[index].data.append(item)
-                if( !collisions.contains(where: { $0 === children[index] })) {
-                    collisions.append(children[index])
+                print(i-numCollisions)
+                print(children.count)
+
+                children[i-numCollisions].data.append(item)
+                if( !collisions.contains(where: { $0 === children[i-numCollisions] })) {
+                    collisions.append(children[i-numCollisions])
                 }
             }
             else {
                 bit_field |= (1 << index)
+                print("bit_field |= (1 << index): \(hexString(bit_field))")
                 let newNode = HctNode<T>()
                 children.append(newNode)
                 newNode.data.append(item)

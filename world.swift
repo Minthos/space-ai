@@ -321,6 +321,7 @@ class Ship:Uid{
             return
         } else {
             cargo.fuel -= 0.5
+            currentSystem.shipsRegistry.relocate(item: self, from: self.positionCartesian, to: to)
             self.positionCartesian = to
             self.position = toSpherical(self.positionCartesian)
         }

@@ -25,6 +25,7 @@ func main(){
         for station in system.stations(){
             let ship = Ship(owner: "test", size: 10, positionCartesian:station.positionCartesian, system: system)
             ships[ship.id] = ship
+            system.shipsRegistry.insert(item: ship, position: ship.positionCartesian)
             print("spawned ship with id \(ship.id) at station with id \(station.id)")
         }
     }
