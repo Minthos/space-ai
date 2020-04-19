@@ -448,10 +448,8 @@ class Ship:Uid{
             }
             if distance(self.positionCartesian, roid!.positionCartesian) < config.miningRange{
                 self.commandQueue.append(Command.harvest(roid!))
-                print("harvest!")
             } else {
                 self.commandQueue.append(Command.move(roid!.positionCartesian))
-                print("move!")
             }
         }     
     }
@@ -703,7 +701,6 @@ class System:CelestialObject{
                     nearest = r
                 }
             }
-            print(candidates.count)
             range *= 10
         }
         return nearest
