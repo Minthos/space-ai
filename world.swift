@@ -34,7 +34,14 @@ let configString = """
     "stationDefaultCapacity": 1000,
     "stationDefaultModuleCapacity": 100,
     "miningRange": 100.0,
-    "dockingRange": 100.0
+    "dockingRange": 100.0,
+    "shipCost": {"minerals": 0.7, "gas": 0.2, "precious": 0.1},
+    "droneCost": {"minerals": 0.7, "gas": 0.2, "precious": 0.1},
+    "stationCost": {"minerals": 0.9, "gas": 0.08, "precious": 0.02},
+    "factoryCost": {"minerals": 0.9, "gas": 0.08, "precious": 0.02},
+    "refineryCost": {"minerals": 0.9, "gas": 0.08, "precious": 0.02},
+    "weaponCost": {"minerals": 0.5, "gas": 0.3, "precious": 0.2},
+    "labCost": {"minerals": 0.5, "gas": 0.3, "precious": 0.2}
 }
 """
 class Config: Decodable{
@@ -232,7 +239,8 @@ class CargoSpace{
         "spaceShip": 0, // can fly around in space and carry stuff
         "spaceStation": 0, // conventient place to process resources and build things
         "factory": 0, // turns resources into everything except fuel and life support
-        "refinery": 0 // turns gas into fuel and life support
+        "refinery": 0, // turns gas into fuel and life support
+        "researchLab": 0 // knowledge is power
     ]
 
     var fuel: Double {
@@ -280,7 +288,7 @@ class CargoSpace{
     }
 
     func transfer(items: [String], to: CargoSpace){
-        if(to.remainingCapacity() < self.contents.values.sum()){
+        if(to.remainingCapacity() - 1e-15 < items.map( { contents[$0]! } ).sum()){
             print("Error! Cargo space overflow")
             return
         }
@@ -341,16 +349,19 @@ class Ship:Uid{
     }
 
     func move(to: Point){
-        // TODO: add a random spherical offset to the position to avoid pileups in the spatial tree
-
+        let inaccuracy = min(config.miningRange, config.dockingRange) * 0.5
+        let offset = SphericalPoint(inaccuracy * Double(random()) / Double(RAND_MAX),
+                                    Double(random()) / Double(RAND_MAX),
+                                    Double(random()) / Double(RAND_MAX))
+        let destination = to + toCartesian(offset)
         let fuelRemaining = cargo.fuel
         if(fuelRemaining < 1.0){
             print("Error! ship is out of fuel!")
             return
         } else {
             cargo.fuel -= 0.5
-            currentSystem.shipsRegistry.relocate(item: self, from: self.positionCartesian, to: to)
-            self.positionCartesian = to
+            currentSystem.shipsRegistry.relocate(item: self, from: self.positionCartesian, to: destination)
+            self.positionCartesian = destination
             self.position = toSpherical(self.positionCartesian)
         }
     }
@@ -424,7 +435,8 @@ class Ship:Uid{
             let stationCandidates = self.currentSystem.nearbyStations(to: self.positionCartesian)
             var station: Station? = nil
             for s in stationCandidates{
-                if(s.hold.fuel > 3.0 || (self.cargo.gas >= 2.0 && s.modules.refinery >= 1.0)){
+                if (s.hold.remainingCapacity() > self.cargo.contents.values.sum()) &&
+                (s.hold.fuel > 3.0 || (self.cargo.gas >= 2.0 && s.modules.refinery >= 1.0)){
                     station = s
                     break
                 }
@@ -693,9 +705,9 @@ class System:CelestialObject{
         var nearest: Asteroid? = nil
         var range = 1e3
         while(nearest == nil){
-            var vector = Point(range, range, range)
-            var bbox = BBox(top: to + vector, bottom: to - vector)
-            var candidates = asteroidRegistry.lookup(region: bbox)
+            let vector = Point(range, range, range)
+            let bbox = BBox(top: to + vector, bottom: to - vector)
+            let candidates = asteroidRegistry.lookup(region: bbox)
             for r in candidates {
                 if nearest == nil || distance(to, r.positionCartesian) < distance(to, nearest!.positionCartesian){
                     nearest = r

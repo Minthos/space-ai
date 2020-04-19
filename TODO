@@ -1,6 +1,8 @@
 
-finish the octree stub implementation (no need to make it an actual octree until we run into performance issues)
-do the octree stuff because finding nearest asteroid is going to be very costly once stuff starts happening
+
+add more features. building ships and stations?
+economy?
+warfare?
 
 remove commented out shit, break code out into separate files
 
