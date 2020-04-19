@@ -147,6 +147,10 @@ func -(left: Point, right: Point) -> Point {
     return Point(left.x - right.x, left.y - right.y, left.z - right.z)
 }
 
+func ==(left: Point, right: Point) -> Bool {
+    return left.x == right.x && left.y == right.y && left.z == right.z
+}
+
 func distance(_ left: Point, _ right: Point) -> Double {
     return sqrt((left.x - right.x) ** 2 + (left.y - right.y) ** 2 + (left.z - right.z) ** 2)
 }
@@ -315,6 +319,8 @@ class Ship:Uid{
     }
 
     func move(to: Point){
+        // TODO: add a random spherical offset to the position to avoid pileups in the spatial tree
+
         let fuelRemaining = cargo.fuel
         if(fuelRemaining < 1.0){
             print("Error! ship is out of fuel!")

@@ -81,6 +81,14 @@ struct HctItem<T: AnyObject>{
     let position: Point
 }
 
+            /*
+            let absElements = position.xyz().map({ abs($0) })
+            var extent = absElements.reduce(0, { a, b in max(a, b) })
+            extent = potimizeDouble(extent)
+            self.dims = BBox(top: Point(extent, extent, extent), bottom:(Point(-extent, -extent, -extent)))
+            */
+
+
 // TODO: complete implementation
 // TODO: optimize
 class HctTree<T: AnyObject>{
@@ -127,14 +135,10 @@ class HctTree<T: AnyObject>{
     }
 
     func insert(item: T, position: Point){
+        print("insert: \(numItems)")
         if !dims.contains(position){
             print("PANIC! attempting to insert object outside the bounds of the spatial tree: \(position)")
-            /*
-            let absElements = position.xyz().map({ abs($0) })
-            var extent = absElements.reduce(0, { a, b in max(a, b) })
-            extent = potimizeDouble(extent)
-            self.dims = BBox(top: Point(extent, extent, extent), bottom:(Point(-extent, -extent, -extent)))
-            */
+            assert(false)
         }
         let path = resolve(position)
         var leaf = root
@@ -142,16 +146,12 @@ class HctTree<T: AnyObject>{
 
         while(true){
             if(leaf.bit_field == 0){
-                // we have found a leaf node and can insert the item
                 leaf.data.append(HctItem(data: item, position: position))
-                print("inserted item at depth \(depth)")
-                print("leaf data count: \(leaf.data.count) bit_field: " + String(format: "%llx", leaf.bit_field))
                 // max one item per leaf node unless we are at max depth
                 if(leaf.data.count > 1 && depth < MAXDEPTH){
                     leaf.subdivide(depth: depth, tree: self)
                 }
                 numItems++
-                print("numItems: \(numItems)")
                 return
             }
 
@@ -182,22 +182,21 @@ class HctTree<T: AnyObject>{
     }
 
     func remove(item: T, position: Point){
+        print("remove: \(numItems)")
         let path = resolve(position)
         var prev: HctNode<T>? = nil
         var leaf = root
         var depth = 0
 
-        while(true){
-            if(leaf.bit_field == 0){
-                // we have found a leaf node and should find the item
-                leaf.data.removeAll(where: { $0.data === item })
-                if(prev != nil){
-                    prev!.prune(leaf, Int(path[depth]))
-                }
-                numItems--
-                return
-            }
+        if(root.bit_field == 0){
+            let before = root.data.count
+            root.data.removeAll(where: { $0.data === item })
+            numItems--
+            assert(root.data.count == before - 1)
+            return
+        }
 
+        while(true){
             // descend deeper in the tree
             let index = Int(path[depth])
             if(leaf.bit_field & (1 << index) != 0){
@@ -206,17 +205,40 @@ class HctTree<T: AnyObject>{
                     if(decoded[i] == index){
                         prev = leaf
                         leaf = leaf.children[i]
-                        break
+                        let before = leaf.data.count
+                        if(before > 0){
+                            print("before remove: \(leaf.data.count)")
+                            leaf.data.removeAll(where: { $0.data === item })
+                            if(leaf.data.count != before - 1){
+                                print("count: \(leaf.data.count), before: \(before)")
+                            }
+                            assert(leaf.data.count == before - 1)
+                            if(leaf.data.count == 0){
+                                prev!.children.remove(at: i)
+                                prev!.bit_field ^= (1 << index)
+                            }
+                            numItems--
+                            print("after remove: \(leaf.data.count)")
+                            return
+                        }
                     }
                 }
+            } else {
+                print("!!! Error! pathing failed in HctTree.remove!")
             }
             depth++
         }
     }
 
     func relocate(item: T, from: Point, to: Point){
+        let before = numItems
+        if let ship = item as? Ship{
+            assert(ship.positionCartesian == from)
+        }
         remove(item: item, position:from)
+        assert(numItems == before - 1)
         insert(item: item, position:to)
+        assert(numItems == before)
     }
 
     func lookup(region: BBox) -> [T] {
@@ -231,51 +253,62 @@ class HctNode<T: AnyObject>{
     var data: [HctItem<T>] = []
 
     func subdivide(depth: Int, tree: HctTree<T>) {
-        print("subdivide! depth \(depth)")
-        var collisions: [HctNode<T>] = []
-        var numCollisions = 0
-        var prevIndex = -1
         let indices = data.map({ Int(tree.resolve($0.position)[depth]) })
         let pairs = zip(indices, data).sorted(by: { $0.0 < $1.0 } )
-        print("pairs: \(pairs)")
-
-        for i in 0..<pairs.count{
-//        for i, (index, item) in pairs{
-            let (index, item) = pairs[i]
-            if prevIndex == index{
-                numCollisions++
-            }
-            prevIndex = index
-            print("bit_field: \(hexString(bit_field)), 1 << index: \(hexString(1 << index))")
-            if(bit_field & (1 << index) != 0){
-                print(i-numCollisions)
-                print(children.count)
-
-                children[i-numCollisions].data.append(item)
-                if( !collisions.contains(where: { $0 === children[i-numCollisions] })) {
-                    collisions.append(children[i-numCollisions])
+       
+        // sanity checking
+        for i in 1..<pairs.count{
+            let (_, a) = pairs[i]
+            let (_, b) = pairs[i-1]
+            if let aship = a.data as? Ship{
+                if let bship = b.data as? Ship{
+                    if(aship.id == bship.id){
+                        print("\(aship.id) \(aship.positionCartesian)")
+                        print("\(bship.id) \(bship.positionCartesian)")
+                        print(pairs)
+                    }
+                    assert(aship.id != bship.id)
                 }
             }
-            else {
+        }
+       
+        var duplicates = 0
+        for i in 0..<pairs.count{
+            let (index, item) = pairs[i]
+            if bit_field & (1 << index) == 0 {
                 bit_field |= (1 << index)
-                print("bit_field |= (1 << index): \(hexString(bit_field))")
                 let newNode = HctNode<T>()
                 children.append(newNode)
-                newNode.data.append(item)
+            } else {
+                duplicates++
             }
+            children[i-duplicates].data.append(item)
         }
-        for c in collisions{
-            c.subdivide(depth: depth+1, tree: tree)
+        data.removeAll()
+
+        for c in children{
+            if(c.data.count > 1 && depth+1 < MAXDEPTH){
+                c.subdivide(depth: depth+1, tree: tree)
+            }
         }
     }
 
+    /*
     func prune(_ node: HctNode<T>, _ index: Int){
+        print("before prune: \(hexString(bit_field)) \(children.count)")
         if(bit_field & (1 << index) == 0){
             print("!!! Error! trying to prune node that isn't in bit_field")
         }
+        let decoded = self.decode()
+        for i in 0..<decoded.count{
+            if(decoded[i] == index){
+                children.remove(at: i)
+                break
+            }
+        }
         bit_field ^= (1 << index)
-        children.remove(at: index)
-    }
+        print("after prune: \(hexString(bit_field)) \(children.count)")
+    }*/
 
     // expects a bit field with a single bit set to high
     // returns the index of that bit
@@ -309,6 +342,8 @@ class HctNode<T: AnyObject>{
     // then you can zip decode with children and get something like [(0, node), (4, node), (12, node)]
     // TODO: verify that the order of bits I described above matches what the code produces, to avoid bugs
     func decode() -> [Int] {
+        //print("counted bits: \(count_bits()), counted children: \(children.count)")
+
         var v = bit_field
         var results: [Int] = []
         while v != 0{
