@@ -21,6 +21,8 @@ let MAX_STATION_DISTANCE = 1e6 * KM
 
 ////////////////////////////// CONFIG /////////////////////////////////////////
 
+    //"maxAsteroids": 1000000
+
 let configString = """
 {
     "randomSeed": 3,
@@ -28,7 +30,7 @@ let configString = """
     "maxSystems": 5,
     "maxPlanets": 40,
     "maxMoons": 100,
-    "maxAsteroids": 1000000,
+    "maxAsteroids": 10000,
     "stationDefaultCapacity": 1000,
     "stationDefaultModuleCapacity": 100,
     "miningRange": 100.0,
@@ -129,6 +131,10 @@ struct Point{
     func xyz() -> [Double] {
         return [x, y, z]
     }
+    
+    var scientific: String {
+        return "Point(x: \(x.scientific), y: \(y.scientific), z: \(z.scientific))"
+    }
 }
 
 postfix func --(value: inout Int) {
@@ -167,6 +173,22 @@ func ** (num: Double, power: Double) -> Double{
 
 extension Double {
     static var epsilon: Double { return Double.leastNonzeroMagnitude }
+}
+
+extension Formatter {
+    static let scientific: NumberFormatter = {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .scientific
+        formatter.positiveFormat = "0.###E+0"
+        formatter.exponentSymbol = "e"
+        return formatter
+    }()
+}
+
+extension Numeric {
+    var scientific: String {
+        return Formatter.scientific.string(for: self) ?? ""
+    }
 }
 
 extension Sequence where Element: AdditiveArithmetic {
@@ -426,8 +448,10 @@ class Ship:Uid{
             }
             if distance(self.positionCartesian, roid!.positionCartesian) < config.miningRange{
                 self.commandQueue.append(Command.harvest(roid!))
+                print("harvest!")
             } else {
                 self.commandQueue.append(Command.move(roid!.positionCartesian))
+                print("move!")
             }
         }     
     }
@@ -653,6 +677,13 @@ class System:CelestialObject{
         for i in 0..<numAsteroids{
             asteroids[i].proceduralInit(parent: self)
         }
+        for i in 0..<numAsteroids{
+            asteroidRegistry.insert(item: asteroids[i], position: asteroids[i].positionCartesian)
+            if i % 10000 == 9999{
+                print("\((100.0 * Double(i) / Double(numAsteroids)).scientific)%")
+            }
+        }
+        print(asteroids.count)
     }
     
     func stations() -> Array<Station>{
@@ -660,20 +691,27 @@ class System:CelestialObject{
     }
 
     
-    // TODO: replace this with an octree version because this is going to be damn slow when the number of ships gets non-trivial
     func findNearestAsteroid(to: Point) -> Asteroid? {
         var nearest: Asteroid? = nil
-        for r in asteroids {
-            if nearest == nil || distance(to, r.positionCartesian) < distance(to, nearest!.positionCartesian){
-                nearest = r
+        var range = 1e3
+        while(nearest == nil){
+            var vector = Point(range, range, range)
+            var bbox = BBox(top: to + vector, bottom: to - vector)
+            var candidates = asteroidRegistry.lookup(region: bbox)
+            for r in candidates {
+                if nearest == nil || distance(to, r.positionCartesian) < distance(to, nearest!.positionCartesian){
+                    nearest = r
+                }
             }
+            print(candidates.count)
+            range *= 10
         }
         return nearest
     }
     
-    func nearbyAsteroids(to: Point) -> [Asteroid] {
-        return(asteroids.sorted(by: { distance(to, $0.positionCartesian) < distance(to, $1.positionCartesian) } ))
-    }
+//    func nearbyAsteroids(to: Point) -> [Asteroid] {
+//        return(asteroids.sorted(by: { distance(to, $0.positionCartesian) < distance(to, $1.positionCartesian) } ))
+//    }
 
     func nearbyStations(to: Point) -> [Station] {
         return(stations().sorted(by: { distance(to, $0.positionCartesian) < distance(to, $1.positionCartesian) } ))
@@ -681,6 +719,7 @@ class System:CelestialObject{
 
     func depleteAsteroid(_ roid: Asteroid) {
         self.asteroids.removeAll(where: { $0 === roid })
+        self.asteroidRegistry.remove(item: roid, position: roid.positionCartesian)
     }
 }
 

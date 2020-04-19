@@ -61,12 +61,16 @@ struct BBox{
     }
 
     func contains(_ point: Point) -> Bool{
-        return (point.x >= bottom.x &&
+        let result = (point.x >= bottom.x &&
                 point.y >= bottom.y &&
                 point.z >= bottom.z &&
                 point.x <= top.x &&
                 point.y <= top.y &&
                 point.z <= top.z)
+        //if !result{
+        //    print("point: \(point.scientific) bbox: \(self.scientific) contained: \(result)")
+        //}
+        return result
     }
 
     func intersects(bbox: BBox) -> Bool{
@@ -74,6 +78,11 @@ struct BBox{
                 (bbox.bottom.y <= top.y && bbox.top.y >= bottom.y) &&
                 (bbox.bottom.z <= top.z && bbox.top.z >= bottom.z))
     }
+
+    var scientific: String {
+        return "BBox(top: \(top.scientific), bottom: \(bottom.scientific))"
+    }
+
 }
 
 struct HctItem<T: AnyObject>{
@@ -135,7 +144,6 @@ class HctTree<T: AnyObject>{
     }
 
     func insert(item: T, position: Point){
-        print("insert: \(numItems)")
         if !dims.contains(position){
             print("PANIC! attempting to insert object outside the bounds of the spatial tree: \(position)")
             assert(false)
@@ -182,7 +190,6 @@ class HctTree<T: AnyObject>{
     }
 
     func remove(item: T, position: Point){
-        print("remove: \(numItems)")
         let path = resolve(position)
         var prev: HctNode<T>? = nil
         var leaf = root
@@ -207,7 +214,6 @@ class HctTree<T: AnyObject>{
                         leaf = leaf.children[i]
                         let before = leaf.data.count
                         if(before > 0){
-                            print("before remove: \(leaf.data.count)")
                             leaf.data.removeAll(where: { $0.data === item })
                             if(leaf.data.count != before - 1){
                                 print("count: \(leaf.data.count), before: \(before)")
@@ -218,7 +224,6 @@ class HctTree<T: AnyObject>{
                                 prev!.bit_field ^= (1 << index)
                             }
                             numItems--
-                            print("after remove: \(leaf.data.count)")
                             return
                         }
                     }
@@ -242,7 +247,32 @@ class HctTree<T: AnyObject>{
     }
 
     func lookup(region: BBox) -> [T] {
-        return []
+        var results: [T] = []
+        descend(into: root, with: dims, region: region, results: &results)
+        return results
+    }
+
+    func descend(into: HctNode<T>, with: BBox, region: BBox, results: inout [T]) {
+        if(into.bit_field != 0){
+            let decoded = into.decode()
+            for i in 0..<decoded.count{
+                let q = with.selectQuadrant(UInt8(decoded[i]))
+                if q.intersects(bbox: region){
+                    if into.children.count < i{
+                        print(into.children.count)
+                        print(i)
+                    }
+                    assert(into.children.count >= i)
+                    descend(into: into.children[i], with:q, region:region, results:&results)
+                }
+            }
+        } else {
+            for item in into.data{
+                if(region.contains(item.position)){
+                    results.append(item.data)
+                }
+            }
+        }
     }
 
 }
@@ -293,23 +323,6 @@ class HctNode<T: AnyObject>{
         }
     }
 
-    /*
-    func prune(_ node: HctNode<T>, _ index: Int){
-        print("before prune: \(hexString(bit_field)) \(children.count)")
-        if(bit_field & (1 << index) == 0){
-            print("!!! Error! trying to prune node that isn't in bit_field")
-        }
-        let decoded = self.decode()
-        for i in 0..<decoded.count{
-            if(decoded[i] == index){
-                children.remove(at: i)
-                break
-            }
-        }
-        bit_field ^= (1 << index)
-        print("after prune: \(hexString(bit_field)) \(children.count)")
-    }*/
-
     // expects a bit field with a single bit set to high
     // returns the index of that bit
     func whichBit(input: UInt64) -> Int {
@@ -340,7 +353,7 @@ class HctNode<T: AnyObject>{
     // children [node, node, node]
     // decode: [0,4,12]
     // then you can zip decode with children and get something like [(0, node), (4, node), (12, node)]
-    // TODO: verify that the order of bits I described above matches what the code produces, to avoid bugs
+    // TODO: verify that the order of bits I described above matches what the code does, to avoid confusing maintainers (aka. future me)
     func decode() -> [Int] {
         //print("counted bits: \(count_bits()), counted children: \(children.count)")
 
