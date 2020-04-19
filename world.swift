@@ -35,6 +35,8 @@ let configString = """
     "stationDefaultModuleCapacity": 100,
     "miningRange": 100.0,
     "dockingRange": 100.0,
+    "productionRate": 0.1,
+    "researchRate": 0.01,
     "shipCost": {"minerals": 0.7, "gas": 0.2, "precious": 0.1},
     "droneCost": {"minerals": 0.7, "gas": 0.2, "precious": 0.1},
     "stationCost": {"minerals": 0.9, "gas": 0.08, "precious": 0.02},
@@ -44,6 +46,12 @@ let configString = """
     "labCost": {"minerals": 0.5, "gas": 0.3, "precious": 0.2}
 }
 """
+class ResourceAmount: Decodable{
+    let minerals: Double
+    let gas: Double
+    let precious: Double
+}
+
 class Config: Decodable{
     let randomSeed: Int
     let numGalaxies: Int
@@ -55,6 +63,15 @@ class Config: Decodable{
     let stationDefaultModuleCapacity: Double
     let miningRange: Double
     let dockingRange: Double
+    let productionRate: Double
+    let researchRate: Double
+    let shipCost: ResourceAmount
+    let droneCost: ResourceAmount
+    let stationCost: ResourceAmount
+    let factoryCost: ResourceAmount
+    let refineryCost: ResourceAmount
+    let weaponCost: ResourceAmount
+    let labCost: ResourceAmount
 }
 let config = try!JSONDecoder().decode(Config.self, from:configString.data(using: .utf8)!)
 
@@ -315,7 +332,7 @@ class CargoSpace{
     }
 }
 
-enum Command{
+enum ShipCommand{
     case move(Point)
     case warp(System)
     case jump(Galaxy)
@@ -330,7 +347,7 @@ enum Command{
 class Ship:Uid{
     var cargo: CargoSpace
     var owner: String
-    var commandQueue: [Command] = []
+    var commandQueue: [ShipCommand] = []
 
     var collisionRadius: Double
     var currentSystem: System
@@ -446,12 +463,12 @@ class Ship:Uid{
                 return
             }
             if(self.cargo.fuel >= 1.0){
-                self.commandQueue.append(Command.move(station!.positionCartesian))
+                self.commandQueue.append(ShipCommand.move(station!.positionCartesian))
             }
             if(self.cargo.remainingCapacity() < 3.001){
-                self.commandQueue.append(Command.unload(station!))
+                self.commandQueue.append(ShipCommand.unload(station!))
             }
-            self.commandQueue.append(Command.refuel(station!, targetAmount: 3.001))
+            self.commandQueue.append(ShipCommand.refuel(station!, targetAmount: 3.001))
         } else if self.cargo.miningDrone >= 1 {
             let roid = self.currentSystem.findNearestAsteroid(to: self.positionCartesian)
             if roid == nil{
@@ -459,9 +476,9 @@ class Ship:Uid{
                 return
             }
             if distance(self.positionCartesian, roid!.positionCartesian) < config.miningRange{
-                self.commandQueue.append(Command.harvest(roid!))
+                self.commandQueue.append(ShipCommand.harvest(roid!))
             } else {
-                self.commandQueue.append(Command.move(roid!.positionCartesian))
+                self.commandQueue.append(ShipCommand.move(roid!.positionCartesian))
             }
         }     
     }
@@ -489,10 +506,20 @@ class Ship:Uid{
     }
 }
 
+enum StationCommand{
+    case buildShip(Double)
+    case buildFactory(Double)
+    case buildRefinery(Double)
+    case buildStation(Double)
+    case buildWeapon(Double)
+    case buildDrone(Double)
+}
+
 class Station:CelestialObject{
     let hold: CargoSpace
     let modules: CargoSpace
     var owner: String = ""
+    var commandQueue: [StationCommand] = []
 
     init(seed: Int){
         self.hold = CargoSpace(capacity: config.stationDefaultCapacity)
@@ -508,12 +535,43 @@ class Station:CelestialObject{
         self.modules.refinery = 10.0
         self.modules.factory = 10.0
     }
+    
+    func generateCommands(){
+        // TODO
+    }
 
     func tick() {
         let amountToRefine = min(self.modules.refinery, self.hold.gas)
         if(amountToRefine > 0){
             self.hold.gas -= amountToRefine
             self.hold.fuel += amountToRefine
+        }
+        if(commandQueue.count == 0){
+            self.generateCommands()
+        }
+        if(commandQueue.count > 0){
+            let action = commandQueue[0]
+            commandQueue.removeFirst()
+            switch(action){
+            case .buildShip(let target):
+                let remaining = target - self.hold.contents["spaceShip"]!
+//                let resourceLimit = 
+//                let amountToProduce = min(config.productionRate * self.modules.factory, remaining,)
+            case .buildFactory(let target):
+                assert(false)
+            case .buildRefinery(let target):
+                assert(false)
+                
+            case .buildStation(let target):
+                assert(false)
+                
+            case .buildWeapon(let target):
+                assert(false)
+                
+            case .buildDrone(let target):
+                assert(false)
+                
+            }
         }
     }
 }
