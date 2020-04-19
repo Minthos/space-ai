@@ -6,6 +6,9 @@
 
 import Foundation
 
+// MAXDEPTH is 26 because Double only has 53 bits of precision and each level represents 2 bits of spatial resolution
+let MAXDEPTH = 26
+
 // round up to nearest power of 2
 func potimizeDouble(_ number: Double) -> Double{
     if(number.binade == number){
@@ -69,18 +72,16 @@ struct BBox{
     }
 }
 
-struct HctItem{
-    let data: AnyObject
+struct HctItem<T: AnyObject>{
+    let data: T
     let position: Point
 }
 
 // TODO: complete implementation
 // TODO: optimize
-class HctTree{
-    // MAXDEPTH is 26 because Double only has 53 bits of precision and each level represents 2 bits of spatial resolution
-    static let MAXDEPTH = 26
+class HctTree<T: AnyObject>{
     var numItems: Int = 0
-    var root: HctNode = HctNode()
+    var root: HctNode<T> = HctNode<T>()
     var dims: BBox = BBox(top: Point(0, 0, 0), bottom: Point(0, 0, 0))
 
     init(initialSize: Double){
@@ -110,7 +111,7 @@ class HctTree{
         var rax: [UInt8] = []
         var box = dims
         // MAXDEPTH is 26 because Double only has 53 bits of precision. Should break out earlier if possible. (TODO)
-        for _ in 0..<HctTree.MAXDEPTH {
+        for _ in 0..<MAXDEPTH {
             let quadrant = index6bit(top: box.top, bottom:box.bottom, point:position)
             rax.append(UInt8(quadrant))
             box = box.selectQuadrant(quadrant)
@@ -121,7 +122,7 @@ class HctTree{
         return rax
     }
 
-    func insert(item: AnyObject, position: Point){
+    func insert(item: T, position: Point){
         if !dims.contains(position){
             print("PANIC! attempting to insert object outside the bounds of the spatial tree: \(position)")
             /*
@@ -140,7 +141,7 @@ class HctTree{
                 // we have found a leaf node and can insert the item
                 leaf.data.append(HctItem(data: item, position: position))
                 // max one item per leaf node unless we are at max depth
-                if(leaf.data.count > 1 && depth < HctTree.MAXDEPTH){
+                if(leaf.data.count > 1 && depth < MAXDEPTH){
                     leaf.subdivide(depth: depth, tree: self)
                 }
                 numItems++
@@ -158,7 +159,7 @@ class HctTree{
                     }
                 }
             } else {
-                let newNode = HctNode()
+                let newNode = HctNode<T>()
                 leaf.bit_field |= (1 << index)
                 let decoded = leaf.decode()
                 for i in 0..<decoded.count{
@@ -173,9 +174,9 @@ class HctTree{
         }
     }
 
-    func remove(item: AnyObject, position: Point){
+    func remove(item: T, position: Point){
         let path = resolve(position)
-        var prev: HctNode? = nil
+        var prev: HctNode<T>? = nil
         var leaf = root
         var depth = 0
 
@@ -206,24 +207,24 @@ class HctTree{
         }
     }
 
-    func relocate(item: AnyObject, currentPosition: Point, newPosition: Point){
+    func relocate(item: T, currentPosition: Point, newPosition: Point){
         remove(item: item, position:currentPosition)
         insert(item: item, position:newPosition)
     }
 
-    func lookup(region: BBox) -> [AnyObject] {
+    func lookup(region: BBox) -> [T] {
         return []
     }
 
 }
 
-class HctNode{
+class HctNode<T: AnyObject>{
     var bit_field: UInt64 = 0
-    var children: [HctNode] = []
-    var data: [HctItem] = []
+    var children: [HctNode<T>] = []
+    var data: [HctItem<T>] = []
 
-    func subdivide(depth: Int, tree: HctTree) {
-        var collisions: [HctNode] = []
+    func subdivide(depth: Int, tree: HctTree<T>) {
+        var collisions: [HctNode<T>] = []
         let indices = data.map({ Int(tree.resolve($0.position)[depth]) })
         let pairs = zip(indices, data).sorted(by: { $0.0 < $1.0 } )
         for (index, item) in pairs{
@@ -235,7 +236,7 @@ class HctNode{
             }
             else {
                 bit_field |= (1 << index)
-                let newNode = HctNode()
+                let newNode = HctNode<T>()
                 children.append(newNode)
                 newNode.data.append(item)
             }
@@ -245,7 +246,7 @@ class HctNode{
         }
     }
 
-    func prune(_ node: HctNode, _ index: Int){
+    func prune(_ node: HctNode<T>, _ index: Int){
         if(bit_field & (1 << index) == 0){
             print("!!! Error! trying to prune node that isn't in bit_field")
         }

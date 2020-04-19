@@ -616,7 +616,8 @@ class Planet:CelestialObject{
 
 class System:CelestialObject{
     private let randomSeed: Int
-    let spatialTree: HctTree = HctTree(initialSize: SYSTEM_RADIUS)
+    let shipsRegistry: HctTree<Ship> = HctTree<Ship>(initialSize: SYSTEM_RADIUS)
+    let asteroidRegistry: HctTree<Asteroid> = HctTree<Asteroid>(initialSize: SYSTEM_RADIUS)
     
     var planets = [Planet]()
     var asteroids = [Asteroid]()
@@ -678,7 +679,7 @@ class System:CelestialObject{
 
 class Galaxy:CelestialObject{
     private let randomSeed: Int
-    let spatialTree: HctTree = HctTree(initialSize: GALAXY_RADIUS)
+    let systemsRegistry: HctTree<System> = HctTree<System>(initialSize: GALAXY_RADIUS)
     
     var systems = [System]()
 
@@ -706,7 +707,7 @@ class Galaxy:CelestialObject{
 
 class Universe{
     private let randomSeed: Int
-    let spatialTree: HctTree = HctTree(initialSize: UNIVERSE_RADIUS)
+    let galaxyRegistry: HctTree<Galaxy> = HctTree<Galaxy>(initialSize: UNIVERSE_RADIUS)
     var galaxies = [Galaxy]()
 
     init(seed: Int){
