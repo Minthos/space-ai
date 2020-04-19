@@ -32,7 +32,8 @@ let configString = """
     "maxMoons": 100,
     "maxAsteroids": 10000,
     "stationDefaultCapacity": 10000,
-    "stationDefaultModuleCapacity": 100,
+    "stationDefaultModuleCapacity": 1000,
+    "fuelConsumption": 1e-8,
     "miningRange": 100.0,
     "dockingRange": 100.0,
     "productionRate": 0.1,
@@ -71,6 +72,7 @@ class Config: Decodable{
     let maxAsteroids: Int
     let stationDefaultCapacity: Double
     let stationDefaultModuleCapacity: Double
+    let fuelConsumption: Double
     let miningRange: Double
     let dockingRange: Double
     let productionRate: Double
@@ -378,7 +380,7 @@ class CargoSpace{
 
     func transfer(items: [String], to: CargoSpace){
         if(to.remainingCapacity() - 1e-15 < items.map( { contents[$0]! } ).sum()){
-            print("Error! Cargo space overflow")
+            print("Error! Cargo space overflow when attempting to transfer \(items) to \(to.contents)")
             return
         }
         for key in items{
@@ -443,12 +445,15 @@ class Ship:Uid{
                                     Double(random()) / Double(RAND_MAX),
                                     Double(random()) / Double(RAND_MAX))
         let destination = to + toCartesian(offset)
+        let fuelCost = sqrt(distance(self.positionCartesian, destination)) *
+                       (cargo.capacity + 2 * cargo.contents.values.sum()) *
+                       config.fuelConsumption
         let fuelRemaining = cargo.fuel
-        if(fuelRemaining < 1.0){
-            print("Error! ship is out of fuel!")
+        if(fuelRemaining < fuelCost){
+            print("Error! ship is out of fuel! has \(fuelRemaining) of \(fuelCost) required")
             return
         } else {
-            cargo.fuel -= 0.5
+            cargo.fuel -= fuelCost
             currentSystem.shipsRegistry.relocate(item: self, from: self.positionCartesian, to: destination)
             self.positionCartesian = destination
             self.position = toSpherical(self.positionCartesian)
@@ -505,7 +510,7 @@ class Ship:Uid{
             let amount = min(station.hold.fuel, self.cargo.remainingCapacity(), (targetAmount - self.cargo.fuel))
             station.hold.fuel -= amount
             self.cargo.fuel += amount
-            if(self.cargo.fuel < targetAmount){
+            if(self.cargo.fuel + 0.01 < targetAmount){
                 print("Error! refueling failed! station fuel level: \(station.hold.fuel), cargo capacity: \(self.cargo.remainingCapacity())")
                 print("cargo: \(self.cargo.contents)")
                 print("hold: \(station.hold.contents)")
@@ -522,7 +527,8 @@ class Ship:Uid{
     }
 
     func generateCommands(){
-        if(self.cargo.remainingCapacity() < 1.0 || self.cargo.fuel < 2.0){
+        let weight = self.cargo.capacity * 0.1
+        if(self.cargo.remainingCapacity() < 1.0 || self.cargo.fuel < 2.0 * weight){
             var stationCandidates = self.currentSystem.nearbyStations(to: self.positionCartesian)
             if(distance(stationCandidates[0].positionCartesian, self.positionCartesian) > config.dockingRange){
                 stationCandidates.shuffle()
@@ -530,7 +536,7 @@ class Ship:Uid{
             var station: Station? = nil
             for s in stationCandidates{
                 if (s.hold.remainingCapacity() - 1e-15 > self.cargo.resources.values().sum()) &&
-                (s.hold.fuel > 3.0 || (s.hold.gas < 2.0 && self.cargo.gas >= 2.0 && s.modules.refinery >= 1.0)){
+                (s.hold.fuel > 3.0 * weight || (s.hold.gas < 2.0 && self.cargo.gas >= 2.0 && s.modules.refinery >= 1.0)){
                     station = s
                     break
                 }
@@ -539,13 +545,13 @@ class Ship:Uid{
                 print("Error! no station found for refueling")
                 return
             }
-            if(self.cargo.fuel >= 1.0){
+            if(self.cargo.fuel >= 1.0 * weight){
                 self.commandQueue.append(ShipCommand.move(station!.positionCartesian))
             }
-            if(self.cargo.remainingCapacity() < 3.001){
+            if(self.cargo.remainingCapacity() < 3.001 * weight){
                 self.commandQueue.append(ShipCommand.unload(station!))
             }
-            self.commandQueue.append(ShipCommand.refuel(station!, targetAmount: 3.001))
+            self.commandQueue.append(ShipCommand.refuel(station!, targetAmount: 3.001 * weight))
         } else if self.cargo.miningDrone >= 1 {
             let roid = self.currentSystem.findNearestAsteroid(to: self.positionCartesian)
             if roid == nil{
