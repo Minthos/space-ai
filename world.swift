@@ -646,6 +646,9 @@ class Ship:Uid{
             if(self.cargo.capacity == 10){
                 roids = self.currentSystem.findNearbyAsteroids(to: location, findAtLeast: 20)
                 roid = roids.randomElement()
+                if(roid!.precious == 0 && roid!.gas == 0){
+                    roid = roids.first(where: { $0.precious > 0 }) ?? roid
+                }
             }
             else {
                 if(random() % 10 != 0 && lastMinedLocation != nil){

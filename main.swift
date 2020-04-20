@@ -40,7 +40,7 @@ func main(){
     ////////////////////////////// RUNLOOP ////////////////////////////////////
 
     var loop_counter: Int = 0
-    while loop_counter < 500 {
+    while loop_counter < 750 {
         for (_, ship) in ships{
             ship.tick()
         }
