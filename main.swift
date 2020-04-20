@@ -40,7 +40,7 @@ func main(){
     ////////////////////////////// RUNLOOP ////////////////////////////////////
 
     var loop_counter: Int = 0
-    while loop_counter < 1000 {
+    while loop_counter < 500 {
         for (_, ship) in ships{
             ship.tick()
         }
@@ -81,7 +81,7 @@ func main(){
         print("ship recent fuel average: \(ship.fuelMovingAverage.pretty)" + (ship.stuck >= 5 ? " stuck: \(ship.stuck >= 5)" : ""))
     }
     for system in world.allSystems(){
-        print("System \(system.id): remaining asteroids: \(system.asteroids.count) originally: \(system.initialAsteroids) randomSeed: \(system.randomSeed)")
+        print("System \(system.id): remaining asteroids: \(system.asteroidRegistry.values().count) originally: \(system.initialAsteroids) randomSeed: \(system.randomSeed)")
         for station in system.stations(){
             print(station.hold.pretty + " " + station.modules.pretty)
         }

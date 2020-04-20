@@ -33,9 +33,9 @@ struct BBox{
         let yindex = Double((index >> 2) & 0x03)
         let zindex = Double((index >> 4) & 0x03)
         var selection = BBox(top: top, bottom: bottom)
-        let spanx = (selection.top.x - selection.bottom.x) / 4
-        let spany = (selection.top.y - selection.bottom.y) / 4
-        let spanz = (selection.top.z - selection.bottom.z) / 4
+        let spanx = (selection.top.x - selection.bottom.x) * 0.25
+        let spany = (selection.top.y - selection.bottom.y) * 0.25
+        let spanz = (selection.top.z - selection.bottom.z) * 0.25
         selection.top.x -= spanx * (3 - xindex)
         selection.bottom.x += spanx * xindex
         selection.top.y -= spany * (3 - yindex)
@@ -136,9 +136,9 @@ class HctTree<T: AnyObject>{
             let quadrant = index6bit(top: box.top, bottom:box.bottom, point:position)
             rax.append(UInt8(quadrant))
             box = box.selectQuadrant(quadrant)
-            if !box.contains(position){
-                print("!!! ERROR! point not inside bounding box at HctTree.resolve(position: \(position))")
-            }
+            //if !box.contains(position){
+            //    print("!!! ERROR! point not inside bounding box at HctTree.resolve(position: \(position))")
+            //}
         }
         return rax
     }
@@ -215,10 +215,6 @@ class HctTree<T: AnyObject>{
                         let before = leaf.data.count
                         if(before > 0){
                             leaf.data.removeAll(where: { $0.data === item })
-                            if(leaf.data.count != before - 1){
-                                print("count: \(leaf.data.count), before: \(before)")
-                            }
-                            assert(leaf.data.count == before - 1)
                             if(leaf.data.count == 0){
                                 prev!.children.remove(at: i)
                                 prev!.bit_field ^= (1 << index)
@@ -246,7 +242,7 @@ class HctTree<T: AnyObject>{
         assert(numItems == before)
     }
 
-    func elements() -> [T] {
+    func values() -> [T] {
         return lookup(region: dims)
     }
 
@@ -261,12 +257,8 @@ class HctTree<T: AnyObject>{
             let decoded = into.decode()
             for i in 0..<decoded.count{
                 let q = with.selectQuadrant(UInt8(decoded[i]))
+                // TODO: optimize this to reduce the number of intersection tests in cases where decoded is big-ish (bigger than 8?)
                 if q.intersects(bbox: region){
-                    if into.children.count < i{
-                        print(into.children.count)
-                        print(i)
-                    }
-                    assert(into.children.count >= i)
                     descend(into: into.children[i], with:q, region:region, results:&results)
                 }
             }

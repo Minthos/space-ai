@@ -33,7 +33,7 @@ let configString = """
     "maxAsteroids": 1000000,
     "stationDefaultCapacity": 10000,
     "stationDefaultModuleCapacity": 1000,
-    "fuelConsumption": 1.5e-8,
+    "fuelConsumption": 1e-8,
     "movementRange": 50.0,
     "miningRange": 100.0,
     "dockingRange": 100.0,
@@ -854,8 +854,8 @@ class Asteroid{
             precious = Double(random()) / Double(RAND_MAX)
         }
 //        let multiplier = 1e3
-        let multiplier = 1e2
-//        let multiplier = 1e1
+//        let multiplier = 1e2
+        let multiplier = 1e1
         minerals *= multiplier
         gas *= multiplier
         precious *= multiplier
@@ -963,7 +963,6 @@ class System:CelestialObject{
     var initialAsteroids: Int = 0
 
     var planets = [Planet]()
-    var asteroids = [Asteroid]()
 
     init(seed: Int){
         self.randomSeed = seed
@@ -978,6 +977,7 @@ class System:CelestialObject{
         let numPlanets = planetQtyGen(max_: config.maxPlanets, min_:1)
         let numAsteroids = genericQtyGen(max_: config.maxAsteroids, min_:1)
         self.initialAsteroids = numAsteroids
+        var asteroids: [Asteroid] = []
         for _ in 0..<numPlanets{
             planets.append(Planet(seed: random()))
         }
@@ -1031,7 +1031,6 @@ class System:CelestialObject{
     }
 
     func depleteAsteroid(_ roid: Asteroid) {
-        self.asteroids.removeAll(where: { $0 === roid })
         self.asteroidRegistry.remove(item: roid, position: roid.positionCartesian)
     }
 }
