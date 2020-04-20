@@ -33,7 +33,7 @@ let configString = """
     "maxAsteroids": 1000000,
     "stationDefaultCapacity": 10000,
     "stationDefaultModuleCapacity": 1000,
-    "fuelConsumption": 5e-9,
+    "fuelConsumption": 3e-9,
     "movementRange": 50.0,
     "miningRange": 100.0,
     "dockingRange": 100.0,
@@ -746,7 +746,7 @@ class Station:CelestialObject{
                   self.modules.remainingCapacity() > self.productionCapacity){
             self.commandQueue.append(StationCommand.buildRefinery(self.productionCapacity))
             self.commandQueue.append(StationCommand.refine(self.modules.refinery+1))
-        } else if(self.hold.fuel < self.hold.gas){
+        } else if(random() % 2 == 0 && self.hold.fuel < self.hold.gas){
             self.commandQueue.append(StationCommand.refine(min(self.hold.gas, self.modules.refinery)))
         } else if self.modules.remainingCapacity() > self.productionCapacity &&
                   self.hold.resources > config.shipCost * 5 * self.productionCapacity{
