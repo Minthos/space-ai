@@ -15,7 +15,7 @@ func spawnSpaceShip(at: Station, owner: String, size: Double, system: System){
 }
 
 func main(){
-    ////////////////////////////// INITIALIZATION /////////////////////////////////
+    ////////////////////////////// INITIALIZATION /////////////////////////////
     var seed = config.randomSeed
     if(CommandLine.arguments.count > 1){
         seed = Int(CommandLine.arguments[1]) ?? config.randomSeed
@@ -24,7 +24,7 @@ func main(){
     let world = Universe(seed: seed)
     world.proceduralInit()
 
-    ////////////////////////////// TEST SETUP /////////////////////////////////////
+    ////////////////////////////// TEST SETUP /////////////////////////////////
     print("--- * * * * * * * ---")
 
     let stations = world.allStations()
@@ -37,7 +37,7 @@ func main(){
 
     print("--- * * * * * * * ---")
 
-    ////////////////////////////// RUNLOOP ////////////////////////////////////////
+    ////////////////////////////// RUNLOOP ////////////////////////////////////
 
     var loop_counter: Int = 0
     while loop_counter < 1000 {
@@ -54,24 +54,19 @@ func main(){
         loop_counter += 1
         print("tick \(loop_counter)")
     }
-    for station in stations{
-        print(station.hold.resources)
-        print("fuel: \(station.hold.fuel), spaceship: \(station.hold.spaceShip), refinery: \(station.modules.refinery), factory: \(station.modules.factory)")
+
+    ////////////////////////////// POST MORTEM ////////////////////////////////
+
+    for (_, ship) in ships{
+        print("ship recent fuel average: \(ship.fuelMovingAverage.pretty)")
     }
     for system in world.allSystems(){
-        print("remaining asteroids: \(system.asteroids.count) originally: \(system.initialAsteroids)")
+        print("System \(system.id): remaining asteroids: \(system.asteroids.count) originally: \(system.initialAsteroids) randomSeed: \(system.randomSeed)")
+        for station in system.stations(){
+            print(station.hold.pretty + " " + station.modules.pretty)
+        }
     }
 }
 
 main()
 
-/*    
-    var box1 = BBox(top: Point(99.99, 0.005, 3.14), bottom: Point(-1, -2, -1e18))
-    print(box1)
-    box1.potimize()
-    print(box1)
-    print(box1.selectQuadrant(0x00))
-    print(box1.selectQuadrant(0x15))
-    print(box1.selectQuadrant(0x2A))
-    print(box1.selectQuadrant(0x3F))
-  */  

@@ -170,6 +170,10 @@ struct Point{
         return [x, y, z]
     }
     
+    var pretty: String {
+        return "(\(x.pretty), \(y.pretty), \(z.pretty))"
+    }
+    
     var scientific: String {
         return "Point(x: \(x.scientific), y: \(y.scientific), z: \(z.scientific))"
     }
@@ -215,6 +219,10 @@ func >(left: ResourceAmount, right: ResourceAmount) -> Bool {
     return (left.minerals > right.minerals && left.gas > right.gas && left.precious > right.precious)
 }
 
+func *(left: Point, right: Double) -> Point {
+    return Point(left.x * right, left.y * right, left.z * right)
+}
+
 func +(left: Point, right: Point) -> Point {
     return Point(left.x + right.x, left.y + right.y, left.z + right.z)
 }
@@ -258,6 +266,18 @@ extension Formatter {
 extension Numeric {
     var scientific: String {
         return Formatter.scientific.string(for: self) ?? ""
+    }
+}
+
+extension Double {
+    var pretty: String {
+        if(self > 10000 || self < 0.001){
+            return self.scientific
+        } else if(self < 0.1){
+            return String(format: "%.4f", self)
+        }  else {
+            return String(format: "%.2f", self)
+        }
     }
 }
 
@@ -415,6 +435,12 @@ class CargoSpace{
     func remainingCapacity() -> Double{
         return capacity - netMass
     }
+
+    var pretty: String{ get {
+        let pairs = self.contents.filter({ $0.value > 0 }).sorted(by: { $0.0 < $1.0 })
+        let output = "[" + pairs.map({ "\($0.key): \($0.value.pretty)" }).joined(separator: ", ") + "]"
+        return output
+    }}
 }
 
 enum ShipCommand{
@@ -437,6 +463,8 @@ class Ship:Uid{
     var grossMass: Double { get { 
         return self.cargo.grossMass + self.modules.grossMass
     } }
+    var range: Double { get { return config.movementRange * 10 * AU * self.modules.propulsion / grossMass } }
+    var fuelMovingAverage = 0.0
 
     var collisionRadius: Double
     var currentSystem: System
@@ -458,7 +486,7 @@ class Ship:Uid{
 
     func move(to: Point){
         let mass = self.grossMass
-        let maxRange = config.movementRange * 10 * AU * self.modules.propulsion / mass
+        let maxRange = range
         let inaccuracy = min(config.miningRange, config.dockingRange) * 0.5
         let offset = SphericalPoint(inaccuracy * Double(random()) / Double(RAND_MAX),
                                     Double(random()) / Double(RAND_MAX),
@@ -466,7 +494,7 @@ class Ship:Uid{
         let destination = to + toCartesian(offset)
         let dist = distance(self.positionCartesian, destination)
         if(dist > maxRange){
-            print("Error! insufficient movement range: \(maxRange) of \(dist)")
+            print("Error! insufficient movement range: \(maxRange.scientific) of \(dist.scientific)")
             return
         }
         let fuelCost = sqrt(dist) * mass * config.fuelConsumption
@@ -548,7 +576,24 @@ class Ship:Uid{
         }
     }
 
+    // return value: can make it in one tick
+    func plotMove(to: Point) -> Bool {
+        var destination = to
+        let dist = distance(to, destination)
+        let r = self.range
+        if(dist > r){
+            let fraction = dist / r
+            let remainder = 1 - fraction
+            destination = self.positionCartesian * remainder + destination * fraction
+            self.commandQueue.append(ShipCommand.move(destination))
+            return false
+        }
+        self.commandQueue.append(ShipCommand.move(destination))
+        return true
+    }
+
     func generateCommands(){
+        // TODO: "weight" is an outdated concept, grossMass would be preferred but the constants need to be tweaked
         let weight = self.cargo.capacity * 0.1
         if(self.cargo.remainingCapacity() < 1.0 || self.cargo.fuel < 2.0 * weight){
             var stationCandidates = self.currentSystem.nearbyStations(to: self.positionCartesian)
@@ -567,8 +612,10 @@ class Ship:Uid{
                 print("Error! no station found for refueling")
                 return
             }
-            if(self.cargo.fuel >= 1.0 * weight){
-                self.commandQueue.append(ShipCommand.move(station!.positionCartesian))
+            if(distance(self.positionCartesian, station!.positionCartesian) > config.dockingRange){
+                if !plotMove(to: station!.positionCartesian){
+                    return
+                }
             }
             if(self.cargo.remainingCapacity() < 3.001 * weight){
                 self.commandQueue.append(ShipCommand.unload(station!))
@@ -583,12 +630,13 @@ class Ship:Uid{
             if distance(self.positionCartesian, roid!.positionCartesian) < config.miningRange{
                 self.commandQueue.append(ShipCommand.harvest(roid!))
             } else {
-                self.commandQueue.append(ShipCommand.move(roid!.positionCartesian))
+                plotMove(to: roid!.positionCartesian)
             }
         }     
     }
 
     func tick(){
+        self.fuelMovingAverage = (self.fuelMovingAverage * 0.95) + self.cargo.fuel * 0.05
         if(commandQueue.count == 0){
             self.generateCommands()
         }
@@ -843,7 +891,7 @@ class Planet:CelestialObject{
 }
 
 class System:CelestialObject{
-    private let randomSeed: Int
+    let randomSeed: Int
     let shipsRegistry: HctTree<Ship> = HctTree<Ship>(initialSize: SYSTEM_RADIUS)
     let asteroidRegistry: HctTree<Asteroid> = HctTree<Asteroid>(initialSize: SYSTEM_RADIUS)
     var initialAsteroids: Int = 0

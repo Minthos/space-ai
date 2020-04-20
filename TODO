@@ -19,7 +19,9 @@ One octree for asteroids, one for ships, one for stations? Planets and moons pro
 PROPULSION
 
 fuel consumption: fuel consumption constant * sqrt(distance) * gross vehicle mass * (1 - 0.1 * research level)
-maximum movement range per tick: 100 AU * units of propulsion equipped / gross vehicle mass
+
+maximum movement range per tick: range constant * 10 AU * units of propulsion equipped / gross vehicle mass
+the range constant represents roughly the movement range of a default ship measured in AU
 
 * note: at research level 11, fuel consumption is negative. I don't think that's a problem,
         I can probably just leave it as an easter egg for anyone who maxes out propulsion research.
