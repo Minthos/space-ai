@@ -33,7 +33,7 @@ let configString = """
     "maxAsteroids": 1000000,
     "stationDefaultCapacity": 10000,
     "stationDefaultModuleCapacity": 1000,
-    "fuelConsumption": 1e-8,
+    "fuelConsumption": 5e-9,
     "movementRange": 50.0,
     "miningRange": 100.0,
     "dockingRange": 100.0,
@@ -553,6 +553,9 @@ class Ship:Uid{
     }
 
     func unload(_ station: Station){
+        if(self.cargo.remainingCapacity() > 10){
+            print("ship \(id) unloading with \(cargo.remainingCapacity().pretty) of \(cargo.capacity.pretty) capacity left")
+        }
         if distance(self.positionCartesian, station.positionCartesian) < config.dockingRange{
             if self.cargo.transfer(items: ["minerals", "gas", "precious"], to: station.hold){
                 stuck = 0
@@ -573,7 +576,6 @@ class Ship:Uid{
 
     func refuel(_ station: Station, targetAmount: Double){
         if distance(self.positionCartesian, station.positionCartesian) < config.dockingRange{
-
             let amount = min(station.hold.fuel, self.cargo.remainingCapacity(), (targetAmount - self.cargo.fuel))
             station.hold.fuel -= amount
             self.cargo.fuel += amount
