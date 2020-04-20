@@ -58,6 +58,9 @@ func main(){
         print(station.hold.resources)
         print("fuel: \(station.hold.fuel), spaceship: \(station.hold.spaceShip), refinery: \(station.modules.refinery), factory: \(station.modules.factory)")
     }
+    for system in world.allSystems(){
+        print("remaining asteroids: \(system.asteroids.count) originally: \(system.initialAsteroids)")
+    }
 }
 
 main()

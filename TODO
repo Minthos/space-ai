@@ -16,8 +16,55 @@ Octrees are centered on the star and the root node is big enough to contain all 
 One octree for asteroids, one for ships, one for stations? Planets and moons probably don't need to be in an octree. Maybe not even stations.
 
 
+PROPULSION
+
+fuel consumption: fuel consumption constant * sqrt(distance) * gross vehicle mass * (1 - 0.1 * research level)
+maximum movement range per tick: 100 AU * units of propulsion equipped / gross vehicle mass
+
+* note: at research level 11, fuel consumption is negative. I don't think that's a problem,
+        I can probably just leave it as an easter egg for anyone who maxes out propulsion research.
 
 
+RESEARCH
+
+1 unit of research lab produces 0.001 research points (RP) per tick.
+For each power of 10 RP accumulated in a given area of research (starting with 1 RP), a new technological level is unlocked.
+Each level of research gives 10% boost to the technology it improves.
+
+weapons: 10% damage
+armor: 10% effective hit points (ships and stations)
+propulsion: 10% less fuel consumption
+manufacturing: 10% factory and refinery output
+mining: 10% mining drone output
+research: 10% research lab output
+
+weapons
+0: green laser
+1: red laser
+2: yellow laser
+3: blue laser
+4: white laser
+5: infrared laser
+6: UV laser
+7: x-ray laser
+8: gamma beam
+9: rainbow beam
+10: wave/particle duality beam
+11: antiphoton laser
+
+armor
+0: steel plating
+1: ruggedized components
+2: multilayer armor
+3: redundant systems
+4: advanced alloys
+5: repair bots
+6: vapor clouds
+7: failure analysis
+8: nanomaterials
+9: survivorship bias
+10: self-healing materials
+11: force fields
 
 
 

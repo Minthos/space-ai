@@ -33,7 +33,8 @@ let configString = """
     "maxAsteroids": 10000,
     "stationDefaultCapacity": 10000,
     "stationDefaultModuleCapacity": 1000,
-    "fuelConsumption": 1e-8,
+    "fuelConsumption": 1.5e-8,
+    "movementRange": 50.0,
     "miningRange": 100.0,
     "dockingRange": 100.0,
     "productionRate": 0.1,
@@ -73,6 +74,7 @@ class Config: Decodable{
     let stationDefaultCapacity: Double
     let stationDefaultModuleCapacity: Double
     let fuelConsumption: Double
+    let movementRange: Double
     let miningRange: Double
     let dockingRange: Double
     let productionRate: Double
@@ -287,7 +289,12 @@ class CelestialObject:Uid{
 
 class CargoSpace{
     var capacity: Double = 0
+    var netMass: Double { get { if(dirty){ updateMass() }; return __mass } }
+    var grossMass: Double { get { return 0.5 * capacity + netMass } }
+    var dirty = false
 
+    private var __mass: Double = 0
+    
     var contents: [String:Double] = [
         "minerals": 0, // minerals are used for building ships, stations and heavy machinery
         "gas": 0, // gas is used for fuel, life support and synthetic materials
@@ -297,6 +304,7 @@ class CargoSpace{
         "miningDrone": 0, // used to harvest resources from asteroids, planets and moons
         "spareParts": 0, // used to repair all kinds of things
         "weapons": 0, // used to destroy all kinds of things
+        "propulsion": 0, // spaceships use this to move around
         "spaceShip": 0, // can fly around in space and carry stuff
         "spaceStation": 0, // conventient place to process resources and build things
         "factory": 0, // turns resources into everything except fuel and life support
@@ -304,74 +312,87 @@ class CargoSpace{
         "researchLab": 0 // knowledge is power
     ]
 
-    var fuel: Double {
-        get { return contents["fuel"]! }
-        set { contents["fuel"] = newValue }
-    }
-
-    var minerals: Double {
-        get { return contents["minerals"]! }
-        set { contents["minerals"] = newValue }
-    }
-
-    var gas: Double {
-        get { return contents["gas"]! }
-        set { contents["gas"] = newValue }
-    }
-
-    var precious: Double {
-        get { return contents["precious"]! }
-        set { contents["precious"] = newValue }
+    func updateMass() {
+        self.__mass = self.contents.values.sum()
+        self.dirty = false
     }
     
     var resources: ResourceAmount {
         get { return ResourceAmount(self.minerals, self.gas, self.precious) }
-        set { self.minerals = newValue.minerals; self.gas = newValue.gas; self.precious = newValue.precious }
+        set {   self.minerals = newValue.minerals
+                self.gas = newValue.gas
+                self.precious = newValue.precious
+                self.dirty = true }
+    }
+
+    var fuel: Double {
+        get { return contents["fuel"]! }
+        set { contents["fuel"] = newValue; dirty = true }
+    }
+
+    var minerals: Double {
+        get { return contents["minerals"]! }
+        set { contents["minerals"] = newValue; dirty = true }
+    }
+
+    var gas: Double {
+        get { return contents["gas"]! }
+        set { contents["gas"] = newValue; dirty = true }
+    }
+
+    var precious: Double {
+        get { return contents["precious"]! }
+        set { contents["precious"] = newValue; dirty = true }
     }
 
     var lifeSupport: Double {
         get { return contents["lifeSupport"]! }
-        set { contents["lifeSupport"] = newValue }
+        set { contents["lifeSupport"] = newValue; dirty = true }
     }
 
     var miningDrone: Double {
         get { return contents["miningDrone"]! }
-        set { contents["miningDrone"] = newValue }
+        set { contents["miningDrone"] = newValue; dirty = true }
     }
 
     var spareParts: Double {
         get { return contents["spareParts"]! }
-        set { contents["spareParts"] = newValue }
+        set { contents["spareParts"] = newValue; dirty = true }
     }
 
     var weapons: Double {
         get { return contents["weapons"]! }
-        set { contents["weapons"] = newValue }
+        set { contents["weapons"] = newValue; dirty = true }
+    }
+
+    var propulsion: Double {
+        get { return contents["propulsion"]! }
+        set { contents["propulsion"] = newValue; dirty = true }
     }
 
     var spaceShip: Double {
         get { return contents["spaceShip"]! }
-        set { contents["spaceShip"] = newValue }
+        set { contents["spaceShip"] = newValue; dirty = true }
     }
 
     var spaceStation: Double {
         get { return contents["spaceStation"]! }
-        set { contents["spaceStation"] = newValue }
+        set { contents["spaceStation"] = newValue; dirty = true }
     }
     
     var factory: Double {
         get { return contents["factory"]! }
-        set { contents["factory"] = newValue }
+        set { contents["factory"] = newValue; dirty = true }
     }
 
     var refinery: Double {
         get { return contents["refinery"]! }
-        set { contents["refinery"] = newValue }
+        set { contents["refinery"] = newValue; dirty = true }
     }
         
     var researchLab: Double {
         get { return contents["researchLab"]! }
-        set { contents["researchLab"] = newValue }
+        set { contents["researchLab"] = newValue; dirty = true }
     }
 
     init(capacity: Double){
@@ -387,22 +408,12 @@ class CargoSpace{
             to.contents[key]! += self.contents[key]!
             self.contents[key] = 0
         }
+        to.dirty = true
+        self.dirty = true
     }
 
     func remainingCapacity() -> Double{
-        var counter = capacity
-
-        for variable in contents.values{
-            if(variable < 0) {
-                print("!!! negative value of \(variable) detected in cargo space!")
-            } else {
-                counter -= variable
-            }
-        }
-        if(counter < 0){
-            print("!!! cargo space overflow! \(counter) remaining of \(self.capacity) capacity!")
-        }
-        return counter
+        return capacity - netMass
     }
 }
 
@@ -420,8 +431,12 @@ enum ShipCommand{
 
 class Ship:Uid{
     var cargo: CargoSpace
+    var modules: CargoSpace
     var owner: String
     var commandQueue: [ShipCommand] = []
+    var grossMass: Double { get { 
+        return self.cargo.grossMass + self.modules.grossMass
+    } }
 
     var collisionRadius: Double
     var currentSystem: System
@@ -431,23 +446,30 @@ class Ship:Uid{
     init(owner: String, size: Double, positionCartesian:Point, system: System){
         self.owner = owner
         self.cargo = CargoSpace(capacity: size)
-        self.collisionRadius = size
+        self.modules = CargoSpace(capacity: (size * 0.5).rounded())
+        self.collisionRadius = sqrt(size)
         self.currentSystem = system
         self.positionCartesian = positionCartesian
         self.position = toSpherical(positionCartesian)
 
-        self.cargo.miningDrone = 1
+        self.modules.miningDrone = 1
+        self.modules.propulsion = (self.modules.remainingCapacity() * 0.5)
     }
 
     func move(to: Point){
+        let mass = self.grossMass
+        let maxRange = config.movementRange * 10 * AU * self.modules.propulsion / mass
         let inaccuracy = min(config.miningRange, config.dockingRange) * 0.5
         let offset = SphericalPoint(inaccuracy * Double(random()) / Double(RAND_MAX),
                                     Double(random()) / Double(RAND_MAX),
                                     Double(random()) / Double(RAND_MAX))
         let destination = to + toCartesian(offset)
-        let fuelCost = sqrt(distance(self.positionCartesian, destination)) *
-                       (cargo.capacity + 2 * cargo.contents.values.sum()) *
-                       config.fuelConsumption
+        let dist = distance(self.positionCartesian, destination)
+        if(dist > maxRange){
+            print("Error! insufficient movement range: \(maxRange) of \(dist)")
+            return
+        }
+        let fuelCost = sqrt(dist) * mass * config.fuelConsumption
         let fuelRemaining = cargo.fuel
         if(fuelRemaining < fuelCost){
             print("Error! ship is out of fuel! has \(fuelRemaining) of \(fuelCost) required")
@@ -488,7 +510,7 @@ class Ship:Uid{
 
     func unload(_ station: Station){
         if distance(self.positionCartesian, station.positionCartesian) < config.dockingRange{
-            if station.hold.remainingCapacity() >= self.cargo.contents.values.sum(){
+            if station.hold.remainingCapacity() >= self.cargo.netMass{
                 self.cargo.transfer(items: ["minerals", "gas", "precious"], to: station.hold)
             }
             else{
@@ -552,7 +574,7 @@ class Ship:Uid{
                 self.commandQueue.append(ShipCommand.unload(station!))
             }
             self.commandQueue.append(ShipCommand.refuel(station!, targetAmount: 3.001 * weight))
-        } else if self.cargo.miningDrone >= 1 {
+        } else if self.modules.miningDrone >= 1 {
             let roid = self.currentSystem.findNearestAsteroid(to: self.positionCartesian)
             if roid == nil{
                 print("Error! nearest asteroid not found!")
@@ -644,6 +666,7 @@ class Station:CelestialObject{
         if willBuild > 0{
             self.hold.resources = self.hold.resources - (cost * willBuild)
             self.hold.contents[key]! += willBuild
+            self.hold.dirty = true
         }
     }
 
@@ -823,7 +846,8 @@ class System:CelestialObject{
     private let randomSeed: Int
     let shipsRegistry: HctTree<Ship> = HctTree<Ship>(initialSize: SYSTEM_RADIUS)
     let asteroidRegistry: HctTree<Asteroid> = HctTree<Asteroid>(initialSize: SYSTEM_RADIUS)
-    
+    var initialAsteroids: Int = 0
+
     var planets = [Planet]()
     var asteroids = [Asteroid]()
 
@@ -839,6 +863,7 @@ class System:CelestialObject{
         self.position.rho += self.collisionRadius + parent.collisionRadius
         let numPlanets = planetQtyGen(max_: config.maxPlanets, min_:1)
         let numAsteroids = genericQtyGen(max_: config.maxAsteroids, min_:1)
+        self.initialAsteroids = numAsteroids
         for _ in 0..<numPlanets{
             planets.append(Planet(seed: random()))
         }
