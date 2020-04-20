@@ -40,13 +40,31 @@ func main(){
     ////////////////////////////// RUNLOOP ////////////////////////////////////
 
     var loop_counter: Int = 0
-    while loop_counter < 1000 {
+    while loop_counter < 500 {
         for (_, ship) in ships{
             ship.tick()
         }
         for station in stations{
             station.tick()
-            if(station.hold.spaceShip > 30){
+            if(station.hold.spaceShip > 100000){
+                spawnSpaceShip(at: station, owner: "test", size: 100000, system: station.system)
+                station.hold.spaceShip -= 100000
+            } else if(station.hold.spaceShip > 10000){
+                spawnSpaceShip(at: station, owner: "test", size: 10000, system: station.system)
+                station.hold.spaceShip -= 10000
+            } else if(station.hold.spaceShip > 2500){
+                spawnSpaceShip(at: station, owner: "test", size: 2500, system: station.system)
+                station.hold.spaceShip -= 2500
+            } else if(station.hold.spaceShip > 1000){
+                spawnSpaceShip(at: station, owner: "test", size: 1000, system: station.system)
+                station.hold.spaceShip -= 1000
+            } else if(station.hold.spaceShip > 250){
+                spawnSpaceShip(at: station, owner: "test", size: 250, system: station.system)
+                station.hold.spaceShip -= 250
+            } else if(station.hold.spaceShip > 100){
+                spawnSpaceShip(at: station, owner: "test", size: 100, system: station.system)
+                station.hold.spaceShip -= 100
+            } else if(station.hold.spaceShip > 30){
                 spawnSpaceShip(at: station, owner: "test", size: 30, system: station.system)
                 station.hold.spaceShip -= 30
             }
@@ -58,7 +76,7 @@ func main(){
     ////////////////////////////// POST MORTEM ////////////////////////////////
 
     for (_, ship) in ships{
-        print("ship recent fuel average: \(ship.fuelMovingAverage.pretty)")
+        print("ship recent fuel average: \(ship.fuelMovingAverage.pretty)" + (ship.stuck >= 5 ? " stuck: \(ship.stuck >= 5)" : ""))
     }
     for system in world.allSystems(){
         print("System \(system.id): remaining asteroids: \(system.asteroids.count) originally: \(system.initialAsteroids) randomSeed: \(system.randomSeed)")
