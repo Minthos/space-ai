@@ -736,19 +736,20 @@ class Station:CelestialObject{
     }
     
     func generateCommands(){
-        if(self.hold.resources * (1 / self.modules.capacity) > config.stationCost &&
-           ((self.hold.remainingCapacity() < 0.2 * self.hold.capacity) ||
-           (self.modules.remainingCapacity() < 2 * self.productionCapacity))){
+        if(     (self.hold.remainingCapacity() < 0.2 * self.hold.capacity) ||
+                (self.modules.remainingCapacity() < self.productionCapacity)){
             self.commandQueue.append(StationCommand.expandStation(self.modules.capacity))
-        } else if(self.hold.fuel < (5 * self.hold.gas) &&
-           self.hold.resources > config.refineryCost){
+        } else if(self.hold.fuel * 2 < self.hold.gas &&
+                  self.hold.resources > config.refineryCost &&
+                  self.modules.remainingCapacity() > self.productionCapacity){
             self.commandQueue.append(StationCommand.buildRefinery(self.productionCapacity))
-            self.commandQueue.append(StationCommand.refine(min(self.hold.gas, self.modules.refinery+1)))
+            self.commandQueue.append(StationCommand.refine(self.modules.refinery+1))
         } else if(self.hold.fuel < self.hold.gas){
             self.commandQueue.append(StationCommand.refine(min(self.hold.gas, self.modules.refinery)))
-        } else if self.modules.remainingCapacity() > self.modules.factory * 0.1 && self.hold.resources > config.shipCost * 10{
+        } else if self.modules.remainingCapacity() > self.productionCapacity &&
+                  self.hold.resources > config.shipCost * 5 * self.productionCapacity{
             self.commandQueue.append(StationCommand.buildFactory(self.productionCapacity))
-        } else if self.hold.resources > config.shipCost{
+        } else if self.hold.resources > config.shipCost * self.productionCapacity{
             self.commandQueue.append(StationCommand.buildShip(self.productionCapacity))
         }
     }

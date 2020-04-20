@@ -246,6 +246,10 @@ class HctTree<T: AnyObject>{
         assert(numItems == before)
     }
 
+    func elements() -> [T] {
+        return lookup(region: dims)
+    }
+
     func lookup(region: BBox) -> [T] {
         var results: [T] = []
         descend(into: root, with: dims, region: region, results: &results)
