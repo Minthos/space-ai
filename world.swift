@@ -30,6 +30,7 @@ let configString = """
     "maxSystems": 5,
     "maxPlanets": 40,
     "maxMoons": 100,
+    "asteroidResourceMultiplier": 1e3,
     "maxAsteroids": 1000000,
     "stationDefaultCapacity": 10000,
     "stationDefaultModuleCapacity": 1000,
@@ -70,6 +71,7 @@ class Config: Decodable{
     let maxSystems: Int
     let maxPlanets: Int
     let maxMoons: Int
+    let asteroidResourceMultiplier: Double
     let maxAsteroids: Int
     let stationDefaultCapacity: Double
     let stationDefaultModuleCapacity: Double
@@ -279,7 +281,7 @@ extension Numeric {
 
 extension Double {
     var pretty: String {
-        if(self > 10000 || self < 0.001){
+        if(self > 100000 || self < 0.001){
             return self.scientific
         } else if(self < 1){
             return String(format: "%.4f", self)
@@ -505,7 +507,7 @@ class Ship:Uid{
         let destination = to + toCartesian(offset)
         let dist = distance(self.positionCartesian, to)
         if(dist > maxRange){
-            print("Error! insufficient movement range: \(maxRange.scientific) of \(dist.scientific)")
+            print("Error! insufficient movement range: \(maxRange.pretty) of \(dist.pretty)")
             stuck++
             return
         }
@@ -553,7 +555,7 @@ class Ship:Uid{
     }
 
     func unload(_ station: Station){
-        if(self.cargo.remainingCapacity() > 10){
+        if(self.cargo.remainingCapacity() * 5 > cargo.capacity){
             print("ship \(id) unloading with \(cargo.remainingCapacity().pretty) of \(cargo.capacity.pretty) capacity left")
         }
         if distance(self.positionCartesian, station.positionCartesian) < config.dockingRange{
@@ -855,9 +857,7 @@ class Asteroid{
         if type % 16 == 0{
             precious = Double(random()) / Double(RAND_MAX)
         }
-//        let multiplier = 1e3
-//        let multiplier = 1e2
-        let multiplier = 1e1
+        let multiplier = config.asteroidResourceMultiplier
         minerals *= multiplier
         gas *= multiplier
         precious *= multiplier
@@ -995,7 +995,7 @@ class System:CelestialObject{
         for i in 0..<numAsteroids{
             asteroidRegistry.insert(item: asteroids[i], position: asteroids[i].positionCartesian)
             if i % 10000 == 9999{
-                print("\((100.0 * Double(i) / Double(numAsteroids)).scientific)%")
+                print("\((100.0 * Double(i) / Double(numAsteroids)).pretty)%")
             }
         }
         print(asteroids.count)

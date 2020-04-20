@@ -40,14 +40,17 @@ func main(){
     ////////////////////////////// RUNLOOP ////////////////////////////////////
 
     var loop_counter: Int = 0
-    while loop_counter < 1500 {
+    while loop_counter < 1000 {
         for (_, ship) in ships{
             ship.tick()
         }
         for station in stations{
             station.tick()
             if(loop_counter % 10 == 0){
-                if(station.hold.spaceShip > 100000){
+                if(station.hold.spaceShip > 500000){
+                    spawnSpaceShip(at: station, owner: "test", size: 500000, system: station.system)
+                    station.hold.spaceShip -= 500000
+                } else if(station.hold.spaceShip > 100000){
                     spawnSpaceShip(at: station, owner: "test", size: 100000, system: station.system)
                     station.hold.spaceShip -= 100000
                 } else if(station.hold.spaceShip > 10000){
@@ -78,7 +81,10 @@ func main(){
     ////////////////////////////// POST MORTEM ////////////////////////////////
 
     for (_, ship) in ships{
-        print("ship recent fuel average: \(ship.fuelMovingAverage.pretty)" + (ship.stuck >= 5 ? " stuck: \(ship.stuck >= 5)" : ""))
+        //print("ship recent fuel average: \(ship.fuelMovingAverage.pretty)" + (ship.stuck >= 5 ? " stuck: \(ship.stuck >= 5)" : ""))
+        if(ship.stuck > 5){
+            print("stuck ship size \(ship.cargo.capacity)")
+        }
     }
     for system in world.allSystems(){
         print("System \(system.id): remaining asteroids: \(system.asteroidRegistry.values().count) originally: \(system.initialAsteroids) randomSeed: \(system.randomSeed)")
@@ -86,6 +92,7 @@ func main(){
             print(station.hold.pretty + " " + station.modules.pretty)
         }
     }
+    print("\(ships.count) ships spawned")
 }
 
 main()
