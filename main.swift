@@ -40,33 +40,35 @@ func main(){
     ////////////////////////////// RUNLOOP ////////////////////////////////////
 
     var loop_counter: Int = 0
-    while loop_counter < 750 {
+    while loop_counter < 600 {
         for (_, ship) in ships{
             ship.tick()
         }
         for station in stations{
             station.tick()
-            if(station.hold.spaceShip > 100000){
-                spawnSpaceShip(at: station, owner: "test", size: 100000, system: station.system)
-                station.hold.spaceShip -= 100000
-            } else if(station.hold.spaceShip > 10000){
-                spawnSpaceShip(at: station, owner: "test", size: 10000, system: station.system)
-                station.hold.spaceShip -= 10000
-            } else if(station.hold.spaceShip > 2500){
-                spawnSpaceShip(at: station, owner: "test", size: 2500, system: station.system)
-                station.hold.spaceShip -= 2500
-            } else if(station.hold.spaceShip > 1000){
-                spawnSpaceShip(at: station, owner: "test", size: 1000, system: station.system)
-                station.hold.spaceShip -= 1000
-            } else if(station.hold.spaceShip > 250){
-                spawnSpaceShip(at: station, owner: "test", size: 250, system: station.system)
-                station.hold.spaceShip -= 250
-            } else if(station.hold.spaceShip > 100){
-                spawnSpaceShip(at: station, owner: "test", size: 100, system: station.system)
-                station.hold.spaceShip -= 100
-            } else if(station.hold.spaceShip > 30){
-                spawnSpaceShip(at: station, owner: "test", size: 30, system: station.system)
-                station.hold.spaceShip -= 30
+            if(loop_counter % 10 == 0){
+                if(station.hold.spaceShip > 100000){
+                    spawnSpaceShip(at: station, owner: "test", size: 100000, system: station.system)
+                    station.hold.spaceShip -= 100000
+                } else if(station.hold.spaceShip > 10000){
+                    spawnSpaceShip(at: station, owner: "test", size: 10000, system: station.system)
+                    station.hold.spaceShip -= 10000
+                } else if(station.hold.spaceShip > 2500){
+                    spawnSpaceShip(at: station, owner: "test", size: 2500, system: station.system)
+                    station.hold.spaceShip -= 2500
+                } else if(station.hold.spaceShip > 1000){
+                    spawnSpaceShip(at: station, owner: "test", size: 1000, system: station.system)
+                    station.hold.spaceShip -= 1000
+                } else if(station.hold.spaceShip > 250){
+                    spawnSpaceShip(at: station, owner: "test", size: 250, system: station.system)
+                    station.hold.spaceShip -= 250
+                } else if(station.hold.spaceShip > 100){
+                    spawnSpaceShip(at: station, owner: "test", size: 100, system: station.system)
+                    station.hold.spaceShip -= 100
+                } else if(station.hold.spaceShip > 30){
+                    spawnSpaceShip(at: station, owner: "test", size: 30, system: station.system)
+                    station.hold.spaceShip -= 30
+                }
             }
         }
         loop_counter += 1

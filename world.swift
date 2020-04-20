@@ -428,7 +428,7 @@ class CargoSpace{
     }
 
     func transfer(items: [String], to: CargoSpace) -> Bool{
-        if(to.remainingCapacity() - 1e-15 < items.map( { contents[$0]! } ).sum()){
+        if(to.remainingCapacity() < items.map( { contents[$0]! } ).sum()){
             print("Error! Cargo space overflow when attempting to transfer \(items) to \(to.pretty)")
             return false
         }
@@ -644,7 +644,7 @@ class Ship:Uid{
             var roid: Asteroid? = nil
             var roids: [Asteroid] = []
             if(self.cargo.capacity == 10){
-                roids = self.currentSystem.findNearbyAsteroids(to: location, findAtLeast: 20)
+                roids = self.currentSystem.findNearbyAsteroids(to: location, findAtLeast: 50)
                 roid = roids.randomElement()
                 if(roid!.precious == 0 && roid!.gas == 0){
                     roid = roids.first(where: { $0.precious > 0 }) ?? roid
@@ -852,12 +852,12 @@ class Asteroid{
         if type % 16 == 0{
             precious = Double(random()) / Double(RAND_MAX)
         }
-        minerals *= 1e3
-        gas *= 1e3
-        precious *= 1e3
-        //minerals *= 10
-        //gas *= 10
-        //precious *= 10
+//        let multiplier = 1e3
+        let multiplier = 1e2
+//        let multiplier = 1e1
+        minerals *= multiplier
+        gas *= multiplier
+        precious *= multiplier
     }
 }
 
