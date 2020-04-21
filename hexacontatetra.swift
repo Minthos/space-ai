@@ -103,6 +103,13 @@ struct HctItem<T: AnyObject>{
 
 // TODO: complete implementation
 // TODO: optimize
+/*
+    Optimization ideas:
+    Better nearest-neigbor search using priority queue (described below)
+    Replace bbox intersection tests with center+halfsize distance comparisons
+    Intelligently subdivide the search space on each level to avoid unnecessary box-box intersection tests
+
+*/
 class HctTree<T: AnyObject>{
     var numItems: Int = 0
     var root: HctNode<T> = HctNode<T>()
