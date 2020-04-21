@@ -408,7 +408,7 @@ class HctNode<T: AnyObject>{
             }
         }
     }
-
+/*
     // expects a bit field with a single bit set to high
     // returns the index of that bit
     func whichBit(input: UInt64) -> UInt8 {
@@ -430,7 +430,7 @@ class HctNode<T: AnyObject>{
         }
         return UInt8(index)
     }
-    
+  */  
     // returns an array of numbers indicating which bit in the bit field represents
     // the child node at the same index in the children array
     //
@@ -449,7 +449,7 @@ class HctNode<T: AnyObject>{
             let prev = v
             v &= v - 1; // clear the least significant bit set
             let diff = v ^ prev
-            results.append(whichBit(input: diff))
+            results.append(whichBit(diff))
         }
         return results
     }
