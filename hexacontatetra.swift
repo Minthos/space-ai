@@ -26,28 +26,28 @@ func hexString(_ number: UInt64) -> String {
 }
 
 struct BBox{
-    var top: Point
-    var bottom: Point
-    //var center: Point
-    //var halfsize: Double
+    //var top: Point
+    //var bottom: Point
+    var center: Point
+    var halfsize: Double
 
-    var center: Point { get { return (top + bottom) * 0.5 } }
-    var halfsize: Double { get { return abs(top.x - bottom.x) * 0.5 } }
-    //var top: Point { get { return center + halfsize } }
-    //var bottom: Point { get { return center - halfsize } }
+    //var center: Point { get { return (top + bottom) * 0.5 } }
+    //var halfsize: Double { get { return abs(top.x - bottom.x) * 0.5 } }
+    var top: Point { get { return center + halfsize } }
+    var bottom: Point { get { return center - halfsize } }
 
     init(center: Point, halfsize: Double){
-        //self.center = center
-        //self.halfsize = halfsize
-        self.top = center + halfsize
-        self.bottom = center - halfsize
+        self.center = center
+        self.halfsize = halfsize
+        //self.top = center + halfsize
+        //self.bottom = center - halfsize
     }
 
     init(top: Point, bottom: Point){
-        self.top = top
-        self.bottom = bottom
-        //self.center = top - bottom
-        //self.halfsize = top.x - bottom.x
+        //self.top = top
+        //self.bottom = bottom
+        self.center = (top + bottom) * 0.5
+        self.halfsize = abs(top.x - bottom.x) * 0.5
     }
     
     // returns a (1/4, 1/4, 1/4) size section of a bounding box.
@@ -210,44 +210,18 @@ struct HctItem<T: AnyObject>{
 class HctTree<T: AnyObject>{
     var numItems: Int = 0
     var root: HctNode<T> = HctNode<T>()
-    //var dims: BBox = BBox(center: Point(0, 0, 0), halfsize: 0)
     var dims: BBox = BBox(top: Point(0, 0, 0), bottom: Point(0, 0, 0))
 
     init(initialSize: Double){
         let extent = potimizeDouble(initialSize)
         self.dims = BBox(top: Point(extent, extent, extent), bottom:(Point(-extent, -extent, -extent)))
-        //self.dims = BBox(center: Point(0,0,0), halfsize: extent)
     }
 
-    func index2bit(top: Double, bottom: Double, point: Double) -> UInt8{
-        if (top - point) > 3 * (point - bottom){
-            return 0
-        } else if (top - point) > (point - bottom){
-            return 1
-        } else if 3 * (top - point) > (point - bottom){
-            return 2
-        } else {
-            return 3
-        }
-    }
-
-    func index6bit(top: Point, bottom: Point, point: Point) -> UInt8{
-        return index2bit(top: top.x, bottom: bottom.x, point: point.x) |
-                index2bit(top: top.y, bottom: bottom.y, point: point.y) << 2 |
-                index2bit(top: top.z, bottom: bottom.z, point: point.z) << 4
-    }
-
-/*
     func index2bit(center: Double, halfsize: Double, point: Double) -> UInt8{
-        if (center - point) > halfsize{
-            return 0
-        } else if (center - point) > 0{
-            return 1
-        } else if (point - center) > 0{
-            return 2
-        } else {
-            return 3
-        }
+        let bottom = center - halfsize
+        let quartersize = halfsize * 0.5
+        let result = UInt8((point - bottom) / quartersize)
+        return result
     }
 
     func index6bit(center: Point, halfsize: Double, point: Point) -> UInt8{
@@ -255,15 +229,13 @@ class HctTree<T: AnyObject>{
                 index2bit(center: center.y, halfsize: halfsize, point: point.y) << 2 |
                 index2bit(center: center.z, halfsize: halfsize, point: point.z) << 4
     }
-*/
+
     func resolve(_ position: Point) -> [UInt8]{
         var rax: [UInt8] = []
         var box = dims
         // MAXDEPTH is 26 because Double only has 53 bits of precision. Should break out earlier if possible. (TODO)
         for _ in 0..<MAXDEPTH {
-            let quadrant = index6bit(top: box.top, bottom: box.bottom, point:position)
-            //let quadrant = index6bit(top: box.center + box.halfsize, bottom: box.center - box.halfsize, point:position)
-            //let quadrant = index6bit(center: box.center, halfsize: box.halfsize, point:position)
+            let quadrant = index6bit(center: box.center, halfsize: box.halfsize, point:position)
             rax.append(UInt8(quadrant))
             box = box.selectQuadrant(quadrant)
             //if !box.contains(position){
