@@ -83,7 +83,7 @@ func main(){
     for (_, ship) in ships{
         //print("ship recent fuel average: \(ship.fuelMovingAverage.pretty)" + (ship.stuck >= 5 ? " stuck: \(ship.stuck >= 5)" : ""))
         if(ship.stuck > 5){
-            print("stuck ship size \(ship.cargo.capacity)")
+            print("stuck ship size \(ship.cargo.capacity.pretty)")
         }
     }
     for system in world.allSystems(){

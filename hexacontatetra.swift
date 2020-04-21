@@ -26,43 +26,55 @@ func hexString(_ number: UInt64) -> String {
 }
 
 struct BBox{
-    //var top: Point
-    //var bottom: Point
     var center: Point
     var halfsize: Double
 
-    //var center: Point { get { return (top + bottom) * 0.5 } }
-    //var halfsize: Double { get { return abs(top.x - bottom.x) * 0.5 } }
     var top: Point { get { return center + halfsize } }
     var bottom: Point { get { return center - halfsize } }
 
     init(center: Point, halfsize: Double){
         self.center = center
         self.halfsize = halfsize
-        //self.top = center + halfsize
-        //self.bottom = center - halfsize
     }
-
+/*
     init(top: Point, bottom: Point){
-        //self.top = top
-        //self.bottom = bottom
         self.center = (top + bottom) * 0.5
         self.halfsize = abs(top.x - bottom.x) * 0.5
     }
+  */ 
+/*
+    func index2double(_ value: UInt8) -> Double {
+        switch(value){
+        case 0: return 0.0
+        case 1: return 1.0
+        case 2: return 2.0
+        case 3: return 3.0
+        default: return 4.0
+        }
+    }
+
     
+    func index2double(_ value: UInt8) -> Double {
+        return [0.0, 1.0, 2.0, 3.0][Int(value)]
+    }
+*/
+
     // returns a (1/4, 1/4, 1/4) size section of a bounding box.
     // Which of the 64 possible subsections is indicated by the argument "index"
     func selectQuadrant(_ index: UInt8) -> BBox{
+        //let xindex = index2double[i & 0x03]
+        //let yindex = index2double[(i >> 2) & 0x03]
+        //let zindex = index2double[(i >> 4) & 0x03]
         let xindex = Double(index & 0x03)
         let yindex = Double((index >> 2) & 0x03)
         let zindex = Double((index >> 4) & 0x03)
         let quartersize = halfsize * 0.5
-        let eighthsize = quartersize * 0.5
-        let bottom = center - (halfsize - eighthsize)
-        return BBox(center: Point(bottom.x + xindex * quartersize,
-                                  bottom.y + yindex * quartersize,
-                                  bottom.z + zindex * quartersize),
-                    halfsize: halfsize * 0.25)
+        let eighthsize = halfsize * 0.25
+        let offset = eighthsize - halfsize
+        return BBox(center: Point(center.x + offset + xindex * quartersize,
+                                  center.y + offset + yindex * quartersize,
+                                  center.z + offset + zindex * quartersize),
+                    halfsize: eighthsize)
     }
 
     /*
@@ -91,100 +103,19 @@ struct BBox{
                 abs(point.z - center.z) < halfsize )
     }
 
-    /*func contains(_ point: Point) -> Bool{
-        let result = (point.x >= bottom.x &&
-                point.y >= bottom.y &&
-                point.z >= bottom.z &&
-                point.x <= top.x &&
-                point.y <= top.y &&
-                point.z <= top.z)
-        return result
-    }*/
-    
     func intersects(bbox: BBox) -> Bool{
-        return( abs(bbox.center.x - center.x) < (bbox.halfsize + halfsize) &&
-                abs(bbox.center.y - center.y) < (bbox.halfsize + halfsize) &&
-                abs(bbox.center.z - center.z) < (bbox.halfsize + halfsize) )
+        let collisionRadius = bbox.halfsize + halfsize
+        return( abs(bbox.center.x - center.x) < collisionRadius &&
+                abs(bbox.center.y - center.y) < collisionRadius &&
+                abs(bbox.center.z - center.z) < collisionRadius )
     }
-/*
-    func intersects(bbox: BBox) -> Bool{
-        return ((bbox.bottom.x <= top.x && bbox.top.x >= bottom.x) &&
-                (bbox.bottom.y <= top.y && bbox.top.y >= bottom.y) &&
-                (bbox.bottom.z <= top.z && bbox.top.z >= bottom.z))
-    }
-*/
+
     var scientific: String {
         return "BBox(top: \(top.scientific), bottom: \(bottom.scientific))"
     }
 
 }
-/*
-struct BBox{
-    var center: Point
-    var halfsize: Double
 
-    var top: Point { get { return center + halfsize } }
-    var bottom: Point { get { return center - halfsize } }
-
-    init(center: Point, halfsize: Double){
-        self.center = center
-        self.halfsize = halfsize
-    }
-
-    init(top: Point, bottom: Point){
-        self.center = top - bottom
-        self.halfsize = top.x - bottom.x
-    }
-    // returns a (1/4, 1/4, 1/4) size section of a bounding box.
-    // Which of the 64 possible subsections is indicated by the argument "index"
-    func selectQuadrant(_ index: UInt8) -> BBox{
-        let xindex = Double(index & 0x03)
-        let yindex = Double((index >> 2) & 0x03)
-        let zindex = Double((index >> 4) & 0x03)
-//        let bottom = center - halfsize
-//        let quartersize = halfsize * 0.5
-//        return BBox(center: Point(bottom.x + xindex * quartersize,
-//                                  bottom.y + yindex * quartersize,
-//                                  bottom.z + zindex * quartersize),
-//                    halfsize: halfsize * 0.25)
-
-        var stop = top
-        var sbottom = bottom
-
-        let spanx = (stop.x - sbottom.x) * 0.25
-        let spany = (stop.y - sbottom.y) * 0.25
-        let spanz = (stop.z - sbottom.z) * 0.25
-        stop.x -= spanx * (3 - xindex)
-        sbottom.x += spanx * xindex
-        stop.y -= spany * (3 - yindex)
-        sbottom.y += spany * yindex
-        stop.z -= spanz * (3 - zindex)
-        sbottom.z += spanz * zindex
-        return BBox(top: stop, bottom: sbottom)
-    }
-
-    func contains(_ point: Point) -> Bool{
-        return( abs(point.x - center.x) < halfsize &&
-                abs(point.y - center.y) < halfsize &&
-                abs(point.z - center.z) < halfsize )
-    }
-
-    func intersects(bbox: BBox) -> Bool{
-        return( abs(bbox.center.x - center.x) < (bbox.halfsize + halfsize) &&
-                abs(bbox.center.y - center.y) < (bbox.halfsize + halfsize) &&
-                abs(bbox.center.z - center.z) < (bbox.halfsize + halfsize) )
-
-        //return ((bbox.bottom.x <= top.x && bbox.top.x >= bottom.x) &&
-        //        (bbox.bottom.y <= top.y && bbox.top.y >= bottom.y) &&
-        //        (bbox.bottom.z <= top.z && bbox.top.z >= bottom.z))
-    }
-
-    var scientific: String {
-        return "BBox(top: \((center + halfsize).scientific), bottom: \((center - halfsize).scientific))"
-    }
-
-}
-*/
 struct HctItem<T: AnyObject>{
     let data: T
     let position: Point
@@ -202,7 +133,6 @@ struct HctItem<T: AnyObject>{
 // TODO: optimize
 /*
     Optimization ideas:
-    Replace bbox intersection tests with center+halfsize distance comparisons
     Intelligently subdivide the search space on each level to avoid unnecessary box-box intersection tests
     Better nearest-neigbor search using priority queue (described below)
 
@@ -210,24 +140,24 @@ struct HctItem<T: AnyObject>{
 class HctTree<T: AnyObject>{
     var numItems: Int = 0
     var root: HctNode<T> = HctNode<T>()
-    var dims: BBox = BBox(top: Point(0, 0, 0), bottom: Point(0, 0, 0))
+    var dims: BBox = BBox(center: Point(0,0,0), halfsize: 0)
 
     init(initialSize: Double){
         let extent = potimizeDouble(initialSize)
-        self.dims = BBox(top: Point(extent, extent, extent), bottom:(Point(-extent, -extent, -extent)))
+        dims.halfsize = extent
     }
 
-    func index2bit(center: Double, halfsize: Double, point: Double) -> UInt8{
+    func index2bit(center: Double, halfsize: Double, quartersize: Double, point: Double) -> UInt8{
         let bottom = center - halfsize
-        let quartersize = halfsize * 0.5
         let result = UInt8((point - bottom) / quartersize)
         return result
     }
 
     func index6bit(center: Point, halfsize: Double, point: Point) -> UInt8{
-        return index2bit(center: center.x, halfsize: halfsize, point: point.x) |
-                index2bit(center: center.y, halfsize: halfsize, point: point.y) << 2 |
-                index2bit(center: center.z, halfsize: halfsize, point: point.z) << 4
+        let quartersize = halfsize * 0.5
+        return index2bit(center: center.x, halfsize: halfsize, quartersize: quartersize, point: point.x) |
+                index2bit(center: center.y, halfsize: halfsize, quartersize: quartersize, point: point.y) << 2 |
+                index2bit(center: center.z, halfsize: halfsize, quartersize: quartersize, point: point.z) << 4
     }
 
     func resolve(_ position: Point) -> [UInt8]{
@@ -236,7 +166,7 @@ class HctTree<T: AnyObject>{
         // MAXDEPTH is 26 because Double only has 53 bits of precision. Should break out earlier if possible. (TODO)
         for _ in 0..<MAXDEPTH {
             let quadrant = index6bit(center: box.center, halfsize: box.halfsize, point:position)
-            rax.append(UInt8(quadrant))
+            rax.append(quadrant)
             box = box.selectQuadrant(quadrant)
             //if !box.contains(position){
             //    print("!!! ERROR! point not inside bounding box at HctTree.resolve(position: \(position))")
@@ -358,7 +288,7 @@ class HctTree<T: AnyObject>{
         if(into.bit_field != 0){
             let decoded = into.decode()
             for i in 0..<decoded.count{
-                let q = with.selectQuadrant(UInt8(decoded[i]))
+                let q = with.selectQuadrant(decoded[i])
                 // TODO: optimize this to reduce the number of intersection tests in cases where decoded is big-ish (bigger than 8?)
                 if q.intersects(bbox: region){
                     descend(into: into.children[i], with:q, region:region, results:&results)
@@ -446,7 +376,7 @@ class HctNode<T: AnyObject>{
 
     // expects a bit field with a single bit set to high
     // returns the index of that bit
-    func whichBit(input: UInt64) -> Int {
+    func whichBit(input: UInt64) -> UInt8 {
         let masks: [UInt64] = [
             0xaaaaaaaaaaaaaaaa,
             0xcccccccccccccccc,
@@ -463,7 +393,7 @@ class HctNode<T: AnyObject>{
             }
             i += 1
         }
-        return index
+        return UInt8(index)
     }
     
     // returns an array of numbers indicating which bit in the bit field represents
@@ -475,11 +405,11 @@ class HctNode<T: AnyObject>{
     // decode: [0,4,12]
     // then you can zip decode with children and get something like [(0, node), (4, node), (12, node)]
     // TODO: verify that the order of bits I described above matches what the code does, to avoid confusing maintainers (aka. future me)
-    func decode() -> [Int] {
+    func decode() -> [UInt8] {
         //print("counted bits: \(count_bits()), counted children: \(children.count)")
 
         var v = bit_field
-        var results: [Int] = []
+        var results: [UInt8] = []
         while v != 0{
             let prev = v
             v &= v - 1; // clear the least significant bit set

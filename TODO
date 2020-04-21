@@ -1,4 +1,7 @@
 
+create ship templates for simplified ship building
+templates are readonly, taking in a Ship object and computing its construction cost
+should be json serializable
 
 add more features. building ships and stations?
 economy?

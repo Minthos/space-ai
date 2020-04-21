@@ -289,12 +289,22 @@ extension Numeric {
 
 extension Double {
     var pretty: String {
-        if(self > 100000 || self < 0.001){
+        if(self < 0.001){
             return self.scientific
         } else if(self < 1){
             return String(format: "%.4f", self)
-        }  else {
+        }  else if(self < 1000) {
             return String(format: "%.2f", self)
+        }  else if(self < 1e6) {
+            return String(format: "%.2fk", self/1e3)
+        }  else if(self < 1e9) {
+            return String(format: "%.2fM", self/1e6)
+        }  else if(self < 1e12) {
+            return String(format: "%.2fG", self/1e9)
+        }  else if(self < 1e15) {
+            return String(format: "%.2fT", self/1e12)
+        } else {
+            return self.scientific
         }
     }
 }
@@ -800,7 +810,7 @@ class Station:CelestialObject{
                         self.modules.capacity += amountToExpand
                         self.hold.resources = self.hold.resources - (config.stationCost * amountToExpand)
                    } else {
-                        print("Station \(id) expanded to \(modules.capacity) modules capacity and \(hold.capacity) storage capacity.")
+                        print("Station \(id) expanded to \(modules.capacity.pretty) modules capacity and \(hold.capacity.pretty) storage capacity.")
                    }
                 } else {
                     // insufficient resources to expand
@@ -1017,10 +1027,7 @@ class System:CelestialObject{
         var results: [Asteroid] = []
         var range = 1e3
         while(results.count < findAtLeast && range < 2 * SYSTEM_RADIUS){
-            let vector = Point(range, range, range)
-            //let bbox = BBox(center: to, halfsize: range)
-            let bbox = BBox(top: to + vector, bottom: to - vector)
-            results = asteroidRegistry.lookup(region: bbox)
+            results = asteroidRegistry.lookup(region: BBox(center: to, halfsize: range))
             range *= 2
         }
         return results
