@@ -54,7 +54,7 @@ struct BBox{
                                   center.z + offset + zindex * quartersize),
                     halfsize: eighthsize)
     }
-    
+    /*
     func b4p_element(center: Double, halfsize: Double, quartersize: Double, point: Double) -> Double{
         let bottom = center - halfsize
         let result = (point - bottom) / quartersize
@@ -77,7 +77,7 @@ struct BBox{
 
         assert(result.contains(point))
         return result
-    }
+    }*/
 
     func contains(_ point: Point) -> Bool{
         return( abs(point.x - center.x) < halfsize &&
@@ -123,9 +123,7 @@ class HctTree<T: AnyObject>{
     var numItems: Int = 0
     var root: HctNode<T> = HctNode<T>()
     var dims: BBox = BBox(center: Point(0,0,0), halfsize: 0)
-    let BINSIZE: Int    // I arrived at this number by measuring the performance of different values. I'm surprised at how large
-                        // it is. That suggests that the octree structure is probably very inefficient. I have work to do.
-                        // Hopefully with faster tree search the optimal value for this number will be lower.
+    let BINSIZE: Int // 1024 seems to work well for asteroids, 64 seems to work well for ships. I don't know why.
 
     init(initialSize: Double, binSize: Int = 1024){
         let extent = potimizeDouble(initialSize)
