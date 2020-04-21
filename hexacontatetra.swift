@@ -57,6 +57,32 @@ struct BBox{
                                   center.z + offset + zindex * quartersize),
                     halfsize: eighthsize)
     }
+    
+//    func mkIndex(a: Double, )
+    
+    func b4p_element(center: Double, halfsize: Double, quartersize: Double, point: Double) -> Double{
+        let bottom = center - halfsize
+        let result = (point - bottom) / quartersize
+        return result.rounded(.towardZero)
+    }
+
+    func boxForPoint(_ point: Point) -> BBox {
+        assert(contains(point))
+
+        let quartersize = halfsize * 0.5
+        let eighthsize = halfsize * 0.25
+        let offset = eighthsize - halfsize
+        let xindex = b4p_element(center: center.x, halfsize: halfsize, quartersize: quartersize, point: point.x)
+        let yindex = b4p_element(center: center.y, halfsize: halfsize, quartersize: quartersize, point: point.y)
+        let zindex = b4p_element(center: center.z, halfsize: halfsize, quartersize: quartersize, point: point.z)
+        let result = BBox(center: Point(center.x + offset + xindex * quartersize,
+                                  center.y + offset + yindex * quartersize,
+                                  center.z + offset + zindex * quartersize),
+                    halfsize: eighthsize)
+
+        assert(result.contains(point))
+        return result
+    }
 
     func contains(_ point: Point) -> Bool{
         return( abs(point.x - center.x) < halfsize &&
@@ -123,12 +149,16 @@ class HctTree<T: AnyObject>{
 
     func resolve(position: Point, at depth: Int) -> UInt8{
         var box = dims
-        var quadrant: UInt8 = 0
-        for _ in 0...depth {
-            quadrant = index6bit(center: box.center, halfsize: box.halfsize, point:position)
-            box = box.selectQuadrant(quadrant)
+        for _ in 0..<depth {
+            box = box.boxForPoint(position)
+//            quadrant = index6bit(center: box.center, halfsize: box.halfsize, point:position)
+//            box = box.selectQuadrant(quadrant)
         }
-        return quadrant
+        if(!box.contains(position)){
+            print("index6bit: \(box) \(position)")
+        }
+        assert(box.contains(position))
+        return index6bit(center: box.center, halfsize: box.halfsize, point:position)
     }
 
     func resolve(_ position: Point) -> [UInt8]{
