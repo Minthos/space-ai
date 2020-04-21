@@ -8,9 +8,6 @@ import Foundation
 
 // MAXDEPTH is 26 because Double only has 53 bits of precision and each level represents 2 bits of spatial resolution
 let MAXDEPTH = 26
-let BINSIZE = 1024  // I arrived at this number by measuring the performance of different values. I'm surprised at how large
-                    // it is. That suggests that the octree structure is probably very inefficient. I have work to do.
-                    // Hopefully with faster tree search the optimal value for this number will be lower.
 
 // round up to nearest power of 2
 func potimizeDouble(_ number: Double) -> Double{
@@ -126,10 +123,14 @@ class HctTree<T: AnyObject>{
     var numItems: Int = 0
     var root: HctNode<T> = HctNode<T>()
     var dims: BBox = BBox(center: Point(0,0,0), halfsize: 0)
+    let BINSIZE: Int    // I arrived at this number by measuring the performance of different values. I'm surprised at how large
+                        // it is. That suggests that the octree structure is probably very inefficient. I have work to do.
+                        // Hopefully with faster tree search the optimal value for this number will be lower.
 
-    init(initialSize: Double){
+    init(initialSize: Double, binSize: Int = 1024){
         let extent = potimizeDouble(initialSize)
         dims.halfsize = extent
+        BINSIZE = binSize
     }
 
     func index2bit(center: Double, halfsize: Double, quartersize: Double, point: Double) -> UInt8{
@@ -184,7 +185,7 @@ class HctTree<T: AnyObject>{
         let z = (Int(p.z) >> (2*(MAXDEPTH - depth))) & 0x03
         return UInt8( x | y << 2 | z << 4 )
     }
-    
+    /*
     func resolve(position: Point, at depth: Int) -> UInt8{
         var box = dims
         for _ in 0..<depth {
@@ -208,7 +209,7 @@ class HctTree<T: AnyObject>{
         }
         return rax
     }
-
+*/
     func insert(item: T, position: Point){
         if !dims.contains(position){
             print("PANIC! attempting to insert object outside the bounds of the spatial tree: \(position)")
@@ -368,7 +369,6 @@ class HctNode<T: AnyObject>{
     var data: [HctItem<T>] = []
 
     func subdivide(depth: Int, tree: HctTree<T>) {
-        //let indices = data.map({ Int(tree.resolve(position: $0.position, at: depth)) })
         let indices = data.map({ Int(tree.quickResolve(position: $0.position, at: depth)) })
         let pairs = zip(indices, data).sorted(by: { $0.0 < $1.0 } )
        
@@ -408,29 +408,7 @@ class HctNode<T: AnyObject>{
             }
         }
     }
-/*
-    // expects a bit field with a single bit set to high
-    // returns the index of that bit
-    func whichBit(input: UInt64) -> UInt8 {
-        let masks: [UInt64] = [
-            0xaaaaaaaaaaaaaaaa,
-            0xcccccccccccccccc,
-            0xf0f0f0f0f0f0f0f0,
-            0xff00ff00ff00ff00,
-            0xffff0000ffff0000,
-            0xffffffff00000000
-        ]
-        var index = 0
-        var i = 0
-        while i < masks.count {
-            if ((input & masks[i]) != 0) {
-                index += (1 << i)
-            }
-            i += 1
-        }
-        return UInt8(index)
-    }
-  */  
+
     // returns an array of numbers indicating which bit in the bit field represents
     // the child node at the same index in the children array
     //

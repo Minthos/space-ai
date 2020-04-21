@@ -1,4 +1,7 @@
 space-ai
 main
+default.prof*
+cachegrind.out.*
 *.o
 *.swp
+.*
