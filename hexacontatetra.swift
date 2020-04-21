@@ -42,29 +42,10 @@ struct BBox{
         self.halfsize = abs(top.x - bottom.x) * 0.5
     }
   */ 
-/*
-    func index2double(_ value: UInt8) -> Double {
-        switch(value){
-        case 0: return 0.0
-        case 1: return 1.0
-        case 2: return 2.0
-        case 3: return 3.0
-        default: return 4.0
-        }
-    }
-
-    
-    func index2double(_ value: UInt8) -> Double {
-        return [0.0, 1.0, 2.0, 3.0][Int(value)]
-    }
-*/
 
     // returns a (1/4, 1/4, 1/4) size section of a bounding box.
     // Which of the 64 possible subsections is indicated by the argument "index"
     func selectQuadrant(_ index: UInt8) -> BBox{
-        //let xindex = index2double[i & 0x03]
-        //let yindex = index2double[(i >> 2) & 0x03]
-        //let zindex = index2double[(i >> 4) & 0x03]
         let xindex = Double(index & 0x03)
         let yindex = Double((index >> 2) & 0x03)
         let zindex = Double((index >> 4) & 0x03)
@@ -76,26 +57,6 @@ struct BBox{
                                   center.z + offset + zindex * quartersize),
                     halfsize: eighthsize)
     }
-
-    /*
-    // returns a (1/4, 1/4, 1/4) size section of a bounding box.
-    // Which of the 64 possible subsections is indicated by the argument "index"
-    func selectQuadrant(_ index: UInt8) -> BBox{
-        let xindex = Double(index & 0x03)
-        let yindex = Double((index >> 2) & 0x03)
-        let zindex = Double((index >> 4) & 0x03)
-        var selection = BBox(top: top, bottom: bottom)
-        let spanx = (selection.top.x - selection.bottom.x) * 0.25
-        let spany = (selection.top.y - selection.bottom.y) * 0.25
-        let spanz = (selection.top.z - selection.bottom.z) * 0.25
-        selection.top.x -= spanx * (3 - xindex)
-        selection.bottom.x += spanx * xindex
-        selection.top.y -= spany * (3 - yindex)
-        selection.bottom.y += spany * yindex
-        selection.top.z -= spanz * (3 - zindex)
-        selection.bottom.z += spanz * zindex
-        return selection
-    }*/
 
     func contains(_ point: Point) -> Bool{
         return( abs(point.x - center.x) < halfsize &&
@@ -160,6 +121,16 @@ class HctTree<T: AnyObject>{
                 index2bit(center: center.z, halfsize: halfsize, quartersize: quartersize, point: point.z) << 4
     }
 
+    func resolve(position: Point, at depth: Int) -> UInt8{
+        var box = dims
+        var quadrant: UInt8 = 0
+        for _ in 0...depth {
+            quadrant = index6bit(center: box.center, halfsize: box.halfsize, point:position)
+            box = box.selectQuadrant(quadrant)
+        }
+        return quadrant
+    }
+
     func resolve(_ position: Point) -> [UInt8]{
         var rax: [UInt8] = []
         var box = dims
@@ -168,9 +139,6 @@ class HctTree<T: AnyObject>{
             let quadrant = index6bit(center: box.center, halfsize: box.halfsize, point:position)
             rax.append(quadrant)
             box = box.selectQuadrant(quadrant)
-            //if !box.contains(position){
-            //    print("!!! ERROR! point not inside bounding box at HctTree.resolve(position: \(position))")
-            //}
         }
         return rax
     }
@@ -187,7 +155,7 @@ class HctTree<T: AnyObject>{
         while(true){
             if(leaf.bit_field == 0){
                 leaf.data.append(HctItem(data: item, position: position))
-                // max one item per leaf node unless we are at max depth
+                // max BINSIZE items per leaf node unless we are at max depth
                 if(leaf.data.count > BINSIZE && depth < MAXDEPTH){
                     leaf.subdivide(depth: depth, tree: self)
                 }
@@ -334,7 +302,7 @@ class HctNode<T: AnyObject>{
     var data: [HctItem<T>] = []
 
     func subdivide(depth: Int, tree: HctTree<T>) {
-        let indices = data.map({ Int(tree.resolve($0.position)[depth]) })
+        let indices = data.map({ Int(tree.resolve(position: $0.position, at: depth)) })
         let pairs = zip(indices, data).sorted(by: { $0.0 < $1.0 } )
        
         // sanity checking
