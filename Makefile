@@ -15,4 +15,7 @@ profile:
 	./main
 	llvm-profdata merge default.profraw -o default.profdata
 
+clean:
+	rm default.prof* cachegrind.out.* *.o || echo 'no worries'
+	git status
 
