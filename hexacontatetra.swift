@@ -28,6 +28,27 @@ func hexString(_ number: UInt64) -> String {
 struct BBox{
     var top: Point
     var bottom: Point
+    //var center: Point
+    //var halfsize: Double
+
+    var center: Point { get { return (top + bottom) * 0.5 } }
+    var halfsize: Double { get { return abs(top.x - bottom.x) * 0.5 } }
+    //var top: Point { get { return center + halfsize } }
+    //var bottom: Point { get { return center - halfsize } }
+
+    init(center: Point, halfsize: Double){
+        //self.center = center
+        //self.halfsize = halfsize
+        self.top = center + halfsize
+        self.bottom = center - halfsize
+    }
+
+    init(top: Point, bottom: Point){
+        self.top = top
+        self.bottom = bottom
+        //self.center = top - bottom
+        //self.halfsize = top.x - bottom.x
+    }
 
     // returns a (1/4, 1/4, 1/4) size section of a bounding box.
     // Which of the 64 possible subsections is indicated by the argument "index"
@@ -48,24 +69,21 @@ struct BBox{
         return selection
     }
 
-    // round each coordinate up to nearest power of 2
-    mutating func potimize(){
-        top.potimize()
-        bottom.potimize()
+    func contains(_ point: Point) -> Bool{
+        return( abs(point.x - center.x) < halfsize &&
+                abs(point.y - center.y) < halfsize &&
+                abs(point.z - center.z) < halfsize )
     }
 
-    func contains(_ point: Point) -> Bool{
+    /*func contains(_ point: Point) -> Bool{
         let result = (point.x >= bottom.x &&
                 point.y >= bottom.y &&
                 point.z >= bottom.z &&
                 point.x <= top.x &&
                 point.y <= top.y &&
                 point.z <= top.z)
-        //if !result{
-        //    print("point: \(point.scientific) bbox: \(self.scientific) contained: \(result)")
-        //}
         return result
-    }
+    }*/
 
     func intersects(bbox: BBox) -> Bool{
         return ((bbox.bottom.x <= top.x && bbox.top.x >= bottom.x) &&
@@ -127,16 +145,6 @@ struct BBox{
         return( abs(point.x - center.x) < halfsize &&
                 abs(point.y - center.y) < halfsize &&
                 abs(point.z - center.z) < halfsize )
-        //let result = (point.x >= bottom.x &&
-        //        point.y >= bottom.y &&
-        //        point.z >= bottom.z &&
-        //        point.x <= top.x &&
-        //        point.y <= top.y &&
-        //        point.z <= top.z)
-        //if !result{
-        //    print("point: \(point.scientific) bbox: \(scientific) contained: \(result)")
-        //}
-        //return result
     }
 
     func intersects(bbox: BBox) -> Bool{
