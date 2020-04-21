@@ -417,8 +417,6 @@ class HctNode<T: AnyObject>{
     // then you can zip decode with children and get something like [(0, node), (4, node), (12, node)]
     // TODO: verify that the order of bits I described above matches what the code does, to avoid confusing maintainers (aka. future me)
     func decode() -> [UInt8] {
-        //print("counted bits: \(count_bits()), counted children: \(children.count)")
-
         var v = bit_field
         var results: [UInt8] = []
         while v != 0{

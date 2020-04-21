@@ -1,10 +1,18 @@
 
+CLANG_ARGS = -O
+ARGS = -O
+IMPORTS = -import-objc-header bithacks.h 
+SRC = *.swift
+OBJ = *.o
+
 build:
-	clang -O -c bithacks.c
-	swiftc -import-objc-header bithacks.h -O hexacontatetra.swift world.swift main.swift bithacks.o
+	clang $(CLANG_ARGS) -c *.c
+	swiftc $(IMPORTS) $(ARGS) $(SRC) $(OBJ)
 
 profile:
-	clang -O -fdebug-info-for-profiling -c bithacks.c
-	swiftc -import-objc-header bithacks.h -profile-coverage-mapping -profile-generate -O hexacontatetra.swift world.swift main.swift bithacks.o
+	clang $(CLANG_ARGS) -fdebug-info-for-profiling -c *.c
+	swiftc $(IMPORTS) -profile-coverage-mapping -profile-generate $(ARGS) $(SRC) $(OBJ)
+	./main
+	llvm-profdata merge default.profraw -o default.profdata
 
 

@@ -10,10 +10,10 @@ unsigned char whichBit(unsigned long long input){
         0xffff0000ffff0000,
         0xffffffff00000000
     };
-    int index = 0;
+    unsigned char bit = 0;
     for(int i = 0; i < 6; i++) {
-        index += (!(!(input & masks[i]))) << i;
+        bit += (!(!(input & masks[i]))) << i;
     }
-    return (unsigned char)index;
+    return bit;
 }
 
