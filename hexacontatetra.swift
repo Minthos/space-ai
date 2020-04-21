@@ -8,6 +8,9 @@ import Foundation
 
 // MAXDEPTH is 26 because Double only has 53 bits of precision and each level represents 2 bits of spatial resolution
 let MAXDEPTH = 26
+let BINSIZE = 1024  // I arrived at this number by measuring the performance of different values. I'm surprised at how large
+                    // it is. That suggests that the octree structure is probably very inefficient. I have work to do.
+                    // Hopefully with faster tree search the optimal value for this number will be lower.
 
 // round up to nearest power of 2
 func potimizeDouble(_ number: Double) -> Double{
@@ -156,7 +159,7 @@ class HctTree<T: AnyObject>{
             if(leaf.bit_field == 0){
                 leaf.data.append(HctItem(data: item, position: position))
                 // max one item per leaf node unless we are at max depth
-                if(leaf.data.count > 1 && depth < MAXDEPTH){
+                if(leaf.data.count > BINSIZE && depth < MAXDEPTH){
                     leaf.subdivide(depth: depth, tree: self)
                 }
                 numItems++
@@ -270,6 +273,29 @@ class HctTree<T: AnyObject>{
             }
         }
     }
+
+    /*
+    https://stackoverflow.com/questions/41306122/nearest-neighbor-search-in-octree
+
+    To find the point closest to a search point, or to get list of points in order of increasing distance,
+    you can use a priority queue that can hold both points and internal nodes of the tree, which lets you
+    remove them in order of distance.
+
+    For points (leaves), the distance is just the distance of the point from the search point. For internal
+    nodes (octants), the distance is the smallest distance from the search point to any point that could
+    possibly be in the octant.
+
+    Now, to search, you just put the root of the tree in the priority queue, and repeat:
+
+    Remove the head of the priority queue;
+    If the head of the queue was a point, then it is the closest point in the tree that you have not yet
+    returned. You know this, because if any internal node could possibly have a closer point, then it would
+    have been returned first from the priority queue;
+    If the head of the queue was an internal node, then put its children back into the queue
+    This will produce all the points in the tree in order of increasing distance from the search point.
+    The same algorithm works for KD trees as well.
+    */
+
 
 }
 
