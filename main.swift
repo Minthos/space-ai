@@ -92,7 +92,7 @@ func main(){
             print(station.hold.pretty + " " + station.modules.pretty)
         }
     }
-    print("\(ships.count) ships spawned")
+    print("\(ships.count) ships spawned, total weight: \(ships.values.map({$0.cargo.capacity}).sum().pretty)")
 }
 
 main()

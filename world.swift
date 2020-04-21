@@ -30,7 +30,7 @@ let configString = """
     "maxSystems": 5,
     "maxPlanets": 40,
     "maxMoons": 100,
-    "asteroidResourceMultiplier": 1e3,
+    "asteroidResourceMultiplier": 1e2,
     "maxAsteroids": 1000000,
     "stationDefaultCapacity": 10000,
     "stationDefaultModuleCapacity": 1000,
@@ -239,6 +239,14 @@ func +(left: Point, right: Point) -> Point {
 
 func -(left: Point, right: Point) -> Point {
     return Point(left.x - right.x, left.y - right.y, left.z - right.z)
+}
+
+func +(left: Point, right: Double) -> Point {
+    return Point(left.x + right, left.y + right, left.z + right)
+}
+
+func -(left: Point, right: Double) -> Point {
+    return Point(left.x - right, left.y - right, left.z - right)
 }
 
 func ==(left: Point, right: Point) -> Bool {
@@ -1010,6 +1018,7 @@ class System:CelestialObject{
         var range = 1e3
         while(results.count < findAtLeast && range < 2 * SYSTEM_RADIUS){
             let vector = Point(range, range, range)
+            //let bbox = BBox(center: to, halfsize: range)
             let bbox = BBox(top: to + vector, bottom: to - vector)
             results = asteroidRegistry.lookup(region: bbox)
             range *= 2

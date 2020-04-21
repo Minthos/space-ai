@@ -48,15 +48,6 @@ struct BBox{
         return selection
     }
 
-    mutating func expandTo(_ point: Point){
-        top.x = max(top.x, point.x)
-        top.y = max(top.y, point.y)
-        top.z = max(top.z, point.z)
-        bottom.x = min(bottom.x, point.x)
-        bottom.y = min(bottom.y, point.y)
-        bottom.z = min(bottom.z, point.z)
-    }
-
     // round each coordinate up to nearest power of 2
     mutating func potimize(){
         top.potimize()
@@ -87,7 +78,83 @@ struct BBox{
     }
 
 }
+/*
+struct BBox{
+    var center: Point
+    var halfsize: Double
 
+    var top: Point { get { return center + halfsize } }
+    var bottom: Point { get { return center - halfsize } }
+
+    init(center: Point, halfsize: Double){
+        self.center = center
+        self.halfsize = halfsize
+    }
+
+    init(top: Point, bottom: Point){
+        self.center = top - bottom
+        self.halfsize = top.x - bottom.x
+    }
+    // returns a (1/4, 1/4, 1/4) size section of a bounding box.
+    // Which of the 64 possible subsections is indicated by the argument "index"
+    func selectQuadrant(_ index: UInt8) -> BBox{
+        let xindex = Double(index & 0x03)
+        let yindex = Double((index >> 2) & 0x03)
+        let zindex = Double((index >> 4) & 0x03)
+//        let bottom = center - halfsize
+//        let quartersize = halfsize * 0.5
+//        return BBox(center: Point(bottom.x + xindex * quartersize,
+//                                  bottom.y + yindex * quartersize,
+//                                  bottom.z + zindex * quartersize),
+//                    halfsize: halfsize * 0.25)
+
+        var stop = top
+        var sbottom = bottom
+
+        let spanx = (stop.x - sbottom.x) * 0.25
+        let spany = (stop.y - sbottom.y) * 0.25
+        let spanz = (stop.z - sbottom.z) * 0.25
+        stop.x -= spanx * (3 - xindex)
+        sbottom.x += spanx * xindex
+        stop.y -= spany * (3 - yindex)
+        sbottom.y += spany * yindex
+        stop.z -= spanz * (3 - zindex)
+        sbottom.z += spanz * zindex
+        return BBox(top: stop, bottom: sbottom)
+    }
+
+    func contains(_ point: Point) -> Bool{
+        return( abs(point.x - center.x) < halfsize &&
+                abs(point.y - center.y) < halfsize &&
+                abs(point.z - center.z) < halfsize )
+        //let result = (point.x >= bottom.x &&
+        //        point.y >= bottom.y &&
+        //        point.z >= bottom.z &&
+        //        point.x <= top.x &&
+        //        point.y <= top.y &&
+        //        point.z <= top.z)
+        //if !result{
+        //    print("point: \(point.scientific) bbox: \(scientific) contained: \(result)")
+        //}
+        //return result
+    }
+
+    func intersects(bbox: BBox) -> Bool{
+        return( abs(bbox.center.x - center.x) < (bbox.halfsize + halfsize) &&
+                abs(bbox.center.y - center.y) < (bbox.halfsize + halfsize) &&
+                abs(bbox.center.z - center.z) < (bbox.halfsize + halfsize) )
+
+        //return ((bbox.bottom.x <= top.x && bbox.top.x >= bottom.x) &&
+        //        (bbox.bottom.y <= top.y && bbox.top.y >= bottom.y) &&
+        //        (bbox.bottom.z <= top.z && bbox.top.z >= bottom.z))
+    }
+
+    var scientific: String {
+        return "BBox(top: \((center + halfsize).scientific), bottom: \((center - halfsize).scientific))"
+    }
+
+}
+*/
 struct HctItem<T: AnyObject>{
     let data: T
     let position: Point
@@ -105,19 +172,21 @@ struct HctItem<T: AnyObject>{
 // TODO: optimize
 /*
     Optimization ideas:
-    Better nearest-neigbor search using priority queue (described below)
     Replace bbox intersection tests with center+halfsize distance comparisons
     Intelligently subdivide the search space on each level to avoid unnecessary box-box intersection tests
+    Better nearest-neigbor search using priority queue (described below)
 
 */
 class HctTree<T: AnyObject>{
     var numItems: Int = 0
     var root: HctNode<T> = HctNode<T>()
+    //var dims: BBox = BBox(center: Point(0, 0, 0), halfsize: 0)
     var dims: BBox = BBox(top: Point(0, 0, 0), bottom: Point(0, 0, 0))
 
     init(initialSize: Double){
         let extent = potimizeDouble(initialSize)
         self.dims = BBox(top: Point(extent, extent, extent), bottom:(Point(-extent, -extent, -extent)))
+        //self.dims = BBox(center: Point(0,0,0), halfsize: extent)
     }
 
     func index2bit(top: Double, bottom: Double, point: Double) -> UInt8{
@@ -138,12 +207,33 @@ class HctTree<T: AnyObject>{
                 index2bit(top: top.z, bottom: bottom.z, point: point.z) << 4
     }
 
+/*
+    func index2bit(center: Double, halfsize: Double, point: Double) -> UInt8{
+        if (center - point) > halfsize{
+            return 0
+        } else if (center - point) > 0{
+            return 1
+        } else if (point - center) > 0{
+            return 2
+        } else {
+            return 3
+        }
+    }
+
+    func index6bit(center: Point, halfsize: Double, point: Point) -> UInt8{
+        return index2bit(center: center.x, halfsize: halfsize, point: point.x) |
+                index2bit(center: center.y, halfsize: halfsize, point: point.y) << 2 |
+                index2bit(center: center.z, halfsize: halfsize, point: point.z) << 4
+    }
+*/
     func resolve(_ position: Point) -> [UInt8]{
         var rax: [UInt8] = []
         var box = dims
         // MAXDEPTH is 26 because Double only has 53 bits of precision. Should break out earlier if possible. (TODO)
         for _ in 0..<MAXDEPTH {
-            let quadrant = index6bit(top: box.top, bottom:box.bottom, point:position)
+            let quadrant = index6bit(top: box.top, bottom: box.bottom, point:position)
+            //let quadrant = index6bit(top: box.center + box.halfsize, bottom: box.center - box.halfsize, point:position)
+            //let quadrant = index6bit(center: box.center, halfsize: box.halfsize, point:position)
             rax.append(UInt8(quadrant))
             box = box.selectQuadrant(quadrant)
             //if !box.contains(position){
