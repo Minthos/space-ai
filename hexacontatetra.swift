@@ -146,18 +146,28 @@ class HctTree<T: AnyObject>{
     }
     
     func quickResolve(_ position: Point) -> [UInt8]{
+        // translate the points so that 0,0,0 is the bottom of our number range
+        // (assumes dims is centered on 0,0,0 as it should be)
+        // normalize magnitude to map each level to 2 bits of an Int
         let quartersize = dims.halfsize * 0.5
         let scalingFactor = Double(1 << (MAXDEPTH * 2)) / quartersize
         let p = (position - dims.bottom) * scalingFactor
+        var x = (Int(p.x))
+        var y = (Int(p.y))
+        var z = (Int(p.z))
 
+        // extract the information we're interested in
         var result: [UInt8] = []
-        for i in 0..<MAXDEPTH {
-            let x = (Int(p.x) >> (2*(MAXDEPTH - i))) & 0x03
-            let y = (Int(p.y) >> (2*(MAXDEPTH - i))) & 0x03
-            let z = (Int(p.z) >> (2*(MAXDEPTH - i))) & 0x03
-            result.append(UInt8( x | y << 2 | z << 4 ))
+        for _ in 0..<MAXDEPTH {
+            x = x >> 2
+            y = y >> 2
+            z = z >> 2
+            var temp = x & 3
+            temp |= (y & 3) << 2
+            temp |= (z & 3) << 4
+            result.append(UInt8(temp))
         }
-        return result
+        return result.reversed()
     }
 
     func quickResolve(position: Point, at depth: Int) -> UInt8{
@@ -446,6 +456,7 @@ class HctNode<T: AnyObject>{
 
     // returns the number of children by counting high bits in the bit field
     // a bit useless I suppose when one can just query the length of the children array
+    // maybe it'll come in handy later
     func count_bits() -> Int {
         var v = bit_field
         var c: Int = 0
