@@ -84,13 +84,19 @@ struct BBox{
                 point.z <= top.z)
         return result
     }*/
-
+    
+    func intersects(bbox: BBox) -> Bool{
+        return( abs(bbox.center.x - center.x) < (bbox.halfsize + halfsize) &&
+                abs(bbox.center.y - center.y) < (bbox.halfsize + halfsize) &&
+                abs(bbox.center.z - center.z) < (bbox.halfsize + halfsize) )
+    }
+/*
     func intersects(bbox: BBox) -> Bool{
         return ((bbox.bottom.x <= top.x && bbox.top.x >= bottom.x) &&
                 (bbox.bottom.y <= top.y && bbox.top.y >= bottom.y) &&
                 (bbox.bottom.z <= top.z && bbox.top.z >= bottom.z))
     }
-
+*/
     var scientific: String {
         return "BBox(top: \(top.scientific), bottom: \(bottom.scientific))"
     }
