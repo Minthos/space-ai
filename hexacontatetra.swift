@@ -49,7 +49,23 @@ struct BBox{
         //self.center = top - bottom
         //self.halfsize = top.x - bottom.x
     }
+    
+    // returns a (1/4, 1/4, 1/4) size section of a bounding box.
+    // Which of the 64 possible subsections is indicated by the argument "index"
+    func selectQuadrant(_ index: UInt8) -> BBox{
+        let xindex = Double(index & 0x03)
+        let yindex = Double((index >> 2) & 0x03)
+        let zindex = Double((index >> 4) & 0x03)
+        let quartersize = halfsize * 0.5
+        let eighthsize = quartersize * 0.5
+        let bottom = center - (halfsize - eighthsize)
+        return BBox(center: Point(bottom.x + xindex * quartersize,
+                                  bottom.y + yindex * quartersize,
+                                  bottom.z + zindex * quartersize),
+                    halfsize: halfsize * 0.25)
+    }
 
+    /*
     // returns a (1/4, 1/4, 1/4) size section of a bounding box.
     // Which of the 64 possible subsections is indicated by the argument "index"
     func selectQuadrant(_ index: UInt8) -> BBox{
@@ -67,7 +83,7 @@ struct BBox{
         selection.top.z -= spanz * (3 - zindex)
         selection.bottom.z += spanz * zindex
         return selection
-    }
+    }*/
 
     func contains(_ point: Point) -> Bool{
         return( abs(point.x - center.x) < halfsize &&
