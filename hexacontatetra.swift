@@ -36,12 +36,12 @@ struct BBox{
         self.center = center
         self.halfsize = halfsize
     }
-/*
+
     init(top: Point, bottom: Point){
         self.center = (top + bottom) * 0.5
         self.halfsize = abs(top.x - bottom.x) * 0.5
     }
-  */ 
+   
 
     // returns a (1/4, 1/4, 1/4) size section of a bounding box.
     // Which of the 64 possible subsections is indicated by the argument "index"
@@ -57,8 +57,6 @@ struct BBox{
                                   center.z + offset + zindex * quartersize),
                     halfsize: eighthsize)
     }
-    
-//    func mkIndex(a: Double, )
     
     func b4p_element(center: Double, halfsize: Double, quartersize: Double, point: Double) -> Double{
         let bottom = center - halfsize
@@ -146,13 +144,41 @@ class HctTree<T: AnyObject>{
                 index2bit(center: center.y, halfsize: halfsize, quartersize: quartersize, point: point.y) << 2 |
                 index2bit(center: center.z, halfsize: halfsize, quartersize: quartersize, point: point.z) << 4
     }
+    
+    func quickResolve(_ position: Point) -> [UInt8]{
+        let quartersize = dims.halfsize * 0.5
+        let scalingFactor = Double(1 << (MAXDEPTH * 2)) / quartersize
+        let p = (position - dims.bottom) * scalingFactor
 
+        var result: [UInt8] = []
+        for i in 0..<MAXDEPTH {
+            let x = (Int(p.x) >> (2*(MAXDEPTH - i))) & 0x03
+            let y = (Int(p.y) >> (2*(MAXDEPTH - i))) & 0x03
+            let z = (Int(p.z) >> (2*(MAXDEPTH - i))) & 0x03
+            result.append(UInt8( x | y << 2 | z << 4 ))
+        }
+        return result
+    }
+
+    func quickResolve(position: Point, at depth: Int) -> UInt8{
+        // translate the points so that 0,0,0 is the bottom of our number range
+        // (assumes dims is centered on 0,0,0 as it should be)
+        // normalize magnitude to map each level to 2 bits of an Int
+        let quartersize = dims.halfsize * 0.5
+        let scalingFactor = Double(1 << (MAXDEPTH * 2)) / quartersize
+        let p = (position - dims.bottom) * scalingFactor
+       
+        // extract the information we're interested in
+        let x = (Int(p.x) >> (2*(MAXDEPTH - depth))) & 0x03
+        let y = (Int(p.y) >> (2*(MAXDEPTH - depth))) & 0x03
+        let z = (Int(p.z) >> (2*(MAXDEPTH - depth))) & 0x03
+        return UInt8( x | y << 2 | z << 4 )
+    }
+    
     func resolve(position: Point, at depth: Int) -> UInt8{
         var box = dims
         for _ in 0..<depth {
             box = box.boxForPoint(position)
-//            quadrant = index6bit(center: box.center, halfsize: box.halfsize, point:position)
-//            box = box.selectQuadrant(quadrant)
         }
         if(!box.contains(position)){
             print("index6bit: \(box) \(position)")
@@ -178,7 +204,7 @@ class HctTree<T: AnyObject>{
             print("PANIC! attempting to insert object outside the bounds of the spatial tree: \(position)")
             assert(false)
         }
-        let path = resolve(position)
+        let path = quickResolve(position)
         var leaf = root
         var depth = 0
 
@@ -220,7 +246,7 @@ class HctTree<T: AnyObject>{
     }
 
     func remove(item: T, position: Point){
-        let path = resolve(position)
+        let path = quickResolve(position)
         var prev: HctNode<T>? = nil
         var leaf = root
         var depth = 0
@@ -332,7 +358,8 @@ class HctNode<T: AnyObject>{
     var data: [HctItem<T>] = []
 
     func subdivide(depth: Int, tree: HctTree<T>) {
-        let indices = data.map({ Int(tree.resolve(position: $0.position, at: depth)) })
+        //let indices = data.map({ Int(tree.resolve(position: $0.position, at: depth)) })
+        let indices = data.map({ Int(tree.quickResolve(position: $0.position, at: depth)) })
         let pairs = zip(indices, data).sorted(by: { $0.0 < $1.0 } )
        
         // sanity checking
