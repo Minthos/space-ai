@@ -383,6 +383,7 @@ class HctTree<T: AnyObject>{
             if(node == nil){
                 break
             } else if node!.data.count > 0 {
+                assert(node!.children.count == 0)
                 let sorted: [HctItem<T>] = node!.data.sorted(by: { maxDist($0.position, to) < maxDist($1.position, to) } )
                 results.append(contentsOf: sorted.map({$0.data}))
                 //print(sorted.count)
@@ -392,6 +393,7 @@ class HctTree<T: AnyObject>{
                 // sort child nodes by distance in most distant dimension
                 // merge into queue
                 let decoded = node!.decode()
+                assert(decoded.count == node!.children.count)
                 //print(decoded.map({ String(format:"0x%x", $0)}).joined(separator: ", "))
                 var children: [(Double, BBox, HctNode<T>)] = []
                 for i in 0..<decoded.count{
@@ -411,20 +413,30 @@ class HctTree<T: AnyObject>{
                 let first = queue.firstIndex(where: { $0.0 > children[0].0  })
                 queue.insert(contentsOf: children, at: first ?? 0)
             } else {
-                break
+                assert(node!.children.count == 0)
+                assert(node!.data.count == 0)
+                assert(node === root)
             }
         }
         return results
     }
 
-
+    func index2box(index: UInt8, outer: BBox) -> BBox {
+        let threeeighthssize = outer.halfsize * 0.75
+        let quartersize = outer.halfsize * 0.5
+        let center = Point(outer.center.x + (Double(index & 0x03) * quartersize) - threeeighthssize,
+                          outer.center.y + (Double((index >> 2) & 0x03) * quartersize) - threeeighthssize,
+                          outer.center.z + (Double((index >> 4) & 0x03) * quartersize) - threeeighthssize)
+        return BBox(center: center, halfsize: outer.halfsize * 0.25)
+    }
+/*
     func index2box(index: UInt8, outer: BBox) -> BBox {
         let eighthsize = outer.halfsize * 0.25
         let center = Point(outer.center.x + (Double(index & 0x03) * 2 * eighthsize) - (3 * eighthsize),
                           outer.center.y + (Double((index >> 2) & 0x03) * 2 * eighthsize) - (3 * eighthsize),
                           outer.center.z + (Double((index >> 4) & 0x03) * 2 * eighthsize) - (3 * eighthsize))
         return BBox(center: center, halfsize: eighthsize)
-    }
+    }*/
 }
 
 class HctNode<T: AnyObject>{
