@@ -370,6 +370,10 @@ class HctTree<T: AnyObject>{
     This will produce all the points in the tree in order of increasing distance from the search point.
     The same algorithm works for KD trees as well.
     */
+    func maxDist(_ a: Point, _ b: Point) -> Double {
+        return max(abs(a.x - b.x), abs(a.y - b.y), abs(a.z - b.z))
+    }
+
     func kNearestNeighbor(k: Int, to: Point) -> [T] {
         //var path: [UInt8] = quickResolve(to)
         var queue: [(Double, BBox, HctNode<T>)] = [(0, dims, root)]
@@ -379,17 +383,28 @@ class HctTree<T: AnyObject>{
             if(node == nil){
                 break
             } else if node!.data.count > 0 {
-                results.append(contentsOf: node!.data.map({$0.data}))
+                let sorted: [HctItem<T>] = node!.data.sorted(by: { maxDist($0.position, to) < maxDist($1.position, to) } )
+                results.append(contentsOf: sorted.map({$0.data}))
+                //print(sorted.count)
+                //results.append(contentsOf: node!.data.sort(by: { $0.position < $1.position } ).map({$0.data}))
             } else if node!.children.count > 0 {
                 // calculate greatest distance in each dimension from point to center of each child node
                 // sort child nodes by distance in most distant dimension
                 // merge into queue
                 let decoded = node!.decode()
+                //print(decoded.map({ String(format:"0x%x", $0)}).joined(separator: ", "))
                 var children: [(Double, BBox, HctNode<T>)] = []
                 for i in 0..<decoded.count{
                     let newNode = node!.children[i]
                     let newBox = index2box(index: decoded[i], outer: box)
-                    let distance = max(abs(newBox.center.x - to.x), abs(newBox.center.y - to.y), abs(newBox.center.z - to.z))
+
+                    let calculated = index6bit(center: box.center, halfsize: box.halfsize, point: newBox.center)
+                    //print(String(format:"0x%x, 0x%x", calculated, decoded[i]))
+                    assert(calculated == decoded[i])
+
+                    assert(box.contains(newBox.center))
+                    let distance = maxDist(newBox.center, to) - newBox.halfsize
+                    //abs(newBox.center.x - to.x), abs(newBox.center.y - to.y), abs(newBox.center.z - to.z))
                     children.append((distance, newBox, newNode))
                 }
                 children.sort(by:{ $0.0 < $1.0 })
@@ -402,11 +417,12 @@ class HctTree<T: AnyObject>{
         return results
     }
 
+
     func index2box(index: UInt8, outer: BBox) -> BBox {
         let eighthsize = outer.halfsize * 0.25
-        let center = Point(outer.center.x + (Double(index & 0x03) * eighthsize) - (3 * eighthsize),
-                          outer.center.y + (Double((index << 2) & 0x03) * eighthsize) - (3 * eighthsize),
-                          outer.center.z + (Double((index << 4) & 0x03) * eighthsize) - (3 * eighthsize))
+        let center = Point(outer.center.x + (Double(index & 0x03) * 2 * eighthsize) - (3 * eighthsize),
+                          outer.center.y + (Double((index >> 2) & 0x03) * 2 * eighthsize) - (3 * eighthsize),
+                          outer.center.z + (Double((index >> 4) & 0x03) * 2 * eighthsize) - (3 * eighthsize))
         return BBox(center: center, halfsize: eighthsize)
     }
 }

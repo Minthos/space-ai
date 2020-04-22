@@ -1,4 +1,5 @@
 
+DEBUG = -g
 CLANG_ARGS = -O
 ARGS = -O
 IMPORTS = -import-objc-header bithacks.h 
@@ -8,6 +9,10 @@ OBJ = *.o
 build:
 	clang $(CLANG_ARGS) -c *.c
 	swiftc $(IMPORTS) $(ARGS) $(SRC) $(OBJ)
+
+debug:
+	clang $(DEBUG) -c *.c
+	swiftc $(IMPORTS) $(DEBUG) $(SRC) $(OBJ)
 
 profile:
 	clang $(CLANG_ARGS) -fdebug-info-for-profiling -c *.c
