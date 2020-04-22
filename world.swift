@@ -259,6 +259,10 @@ func distance(_ left: Point, _ right: Point) -> Double {
     return sqrt((left.x - right.x) ** 2 + (left.y - right.y) ** 2 + (left.z - right.z) ** 2)
 }
 
+func distanceSquared(_ left: Point, _ right: Point) -> Double {
+    return (left.x - right.x) ** 2 + (left.y - right.y) ** 2 + (left.z - right.z) ** 2
+}
+
 precedencegroup ExponentiationPrecedence {
   associativity: left
   higherThan: MultiplicationPrecedence
@@ -1026,7 +1030,7 @@ class System:CelestialObject{
         return planets.flatMap{ $0.stations + $0.moons.flatMap{ $0.stations } }
     }
 
-    func findNearbyAsteroids(to: Point, findAtLeast: Int = 1) -> ArraySlice<HctItem<Asteroid>> {
+    func findNearbyAsteroids(to: Point, findAtLeast: Int = 10) -> ArraySlice<HctItem<Asteroid>> {
     //func findNearbyAsteroids(to: Point, findAtLeast: Int = 1) -> [Asteroid] {
     //    if(config.usekNN){
     //        return asteroidRegistry.kNearestNeighbor(k: max(10, findAtLeast), to: to)
@@ -1036,7 +1040,8 @@ class System:CelestialObject{
             var range = 1e3
             while(results.count < findAtLeast && range < 2 * SYSTEM_RADIUS){
                 //results = asteroidRegistry.lookup(region: BBox(center: to, halfsize: range))
-                results = asteroidRegistry.quickLookup(region: BBox(center: to, halfsize: range), cutoff:findAtLeast)
+                //results = asteroidRegistry.quickLookup(region: BBox(center: to, halfsize: range), cutoff:max(10, findAtLeast))
+                results = asteroidRegistry.metaLookup(region: BBox(center: to, halfsize: range), cutoff:max(10, findAtLeast))
                 range *= 2
             }
             return results

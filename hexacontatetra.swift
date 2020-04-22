@@ -341,24 +341,121 @@ class HctTree<T: AnyObject>{
         let z = Int(((from >> 4) & 3) - ((to >> 4) & 3))
         return x * x + y * y + z * z
     }
-
+/*
     func quickLookup(region: BBox, cutoff: Int) -> ArraySlice<HctItem<T>> {
         let path = quickResolve(region.center)
-        return quickDescend(into: root, with: dims, region: region, cutoff: cutoff, path: path, depth:0)
+        return quickDescendNarrow(into: root, with: dims, region: region, cutoff: cutoff, path: path, depth:0)
+    }
+*/
+
+    // what I really want is a path mask or an "extended" path that encodes all node indices that intersect the
+    // bounding box we're interested in. basically, an upper and lower bound for values we're interested in..
+
+    enum Overlap{
+        case none
+        case partial
+        case full
     }
 
-    func quickDescend(into: HctNode<T>, with: BBox, region: BBox, cutoff: Int, path: [UInt8], depth: Int) -> ArraySlice<HctItem<T>> {
+    struct Metadata{
+        var x: Overlap
+        var y: Overlap
+        var z: Overlap
+    }
+
+    func processMeta(m: inout Overlap, key: UInt8, upper: UInt8, lower: UInt8){
+        if m == Overlap.partial{
+            if(key > upper || key < lower){
+                m = Overlap.none
+            } else if(key < upper && key > lower){
+                m = Overlap.full
+            }
+        }
+    }
+
+    func metaDescend(xOverlap: Overlap, yOverlap: Overlap, zOverlap: Overlap, node: HctNode<T>,
+                     pathUpper: [UInt8], pathLower: [UInt8], depth: Int,
+                     results: inout ArraySlice<HctItem<T>>) {
+        if(node.bit_field == 0){
+            results += node.data[0..<node.data.count]
+            return
+        }
+        var partial: [(Int, Metadata)] = []
+        let decoded = node.decode()
+        for i in 0..<decoded.count{
+            let key = decoded[i]
+            var m: Metadata = Metadata(x: xOverlap, y: yOverlap, z: zOverlap)
+            processMeta(m: &m.x, key: key & 3, upper: pathUpper[depth] & 3, lower: pathLower[depth] & 3)
+            processMeta(m: &m.y, key: (key >> 2) & 3, upper: (pathUpper[depth] >> 2) & 3, lower: (pathLower[depth] >> 2) & 3)
+            processMeta(m: &m.z, key: (key >> 4) & 3, upper: (pathUpper[depth] >> 4) & 3, lower: (pathLower[depth] >> 4) & 3)
+            if(m.x == .full && m.y == .full && m.z == .full){
+                results += node.children[i].everything()
+            } else if(m.x != .none && m.y != .none && m.z != .none){
+                partial.append((i, m))
+            }
+        }
+        for (i, m) in partial{
+            metaDescend(xOverlap: m.x, yOverlap: m.y, zOverlap: m.z, node: node.children[i],
+                        pathUpper: pathUpper, pathLower: pathLower, depth: depth+1, results: &results)
+        }
+    }
+
+    func metaLookup(region: BBox, cutoff: Int) -> ArraySlice<HctItem<T>> {
+        let pathUpper = quickResolve(region.top)
+        let pathLower = quickResolve(region.bottom)
+        var results: ArraySlice<HctItem<T>> = []
+        metaDescend(xOverlap: .partial, yOverlap: .partial, zOverlap: .partial, node: root,
+                    pathUpper: pathUpper, pathLower: pathLower, depth: 0, results: &results)
+        return results
+    }
+/*
+    func quickDescendNarrow(into: HctNode<T>, with: BBox, region: BBox, cutoff: Int, path: [UInt8], depth: Int) -> ArraySlice<HctItem<T>> {
         if(into.bit_field == 0){
             return into.data[0..<min(cutoff, into.data.count)]
         }
+       
+        let dumbDistance = abs(with.center.x - region.center.x) +
+            abs(with.center.y - region.center.y) +
+            abs(with.center.z - region.center.z)
+        // is with fully contained within region?
+        if(dumbDistance + with.halfsize < region.halfsize){
+            // grab everything and run
+            return(into.everything())
+        }
+        
         let decoded = into.decode()
-        var nearest = 0
-        var distNearest = 28 // max distance should be (3*3) * 3 = 27
+
+        var result: ArraySlice<HctItem<T>> = []
+        let straightestPath = decoded.first(where: { $0 == path[depth]) })
+        if(straightestPath != nil){
+            let q = with.selectQuadrant(decoded[i])
+            // path is within a child node of the current node
+            // NOTE: this has the potential to miss items, use with caution
+            result += quickDescendNarrow(into: into.children[i], with:q, region:region, cutoff:cutoff, path:path, depth:depth+1)
+            if(result.count >= cutoff){
+                return result
+            }
+        }
+
         for i in 0..<decoded.count{
             if(decoded[i] == path[depth]){
                 let q = with.selectQuadrant(decoded[i])
-                return quickDescend(into: into.children[i], with:q, region:region, cutoff:cutoff, path:path, depth:depth+1)
+                // path is within a child node of the current node
+                // NOTE: this has the potential to miss items, use with caution
+                let result = quickDescendNarrow(into: into.children[i], with:q, region:region, cutoff:cutoff, path:path, depth:depth+1)
+                if(result.count >= cutoff){
+                    return result
+                } else {
+                    
+                }
             }
+        }
+        
+        // for each child, is the child fully outside region?
+        let maxDist = 48
+        let maxDist = region.halfsize * region.halfsize + with.halfsize / 8
+        let maxDist = ((region.halfsize / with.halfsize) * 27)
+
             let d = indexDistance(Int(decoded[i]), Int(path[depth]))
             if(d < distNearest){
                 distNearest = d
@@ -373,7 +470,7 @@ class HctTree<T: AnyObject>{
             return []
         }
     }
-
+*/
     func lookup(region: BBox) -> [T] {
         var results: [T] = []
         descend(into: root, with: dims, region: region, results: &results)
@@ -420,6 +517,7 @@ class HctTree<T: AnyObject>{
     The same algorithm works for KD trees as well.
     */
 
+    // the square of the distance a point is outside a box, or 0 if it's inside
     func squaredDist(_ box: BBox, _ b: Point) -> Double {
         let a = box.center
         let x = max(0, abs(b.x - a.x) - box.halfsize)
@@ -428,6 +526,7 @@ class HctTree<T: AnyObject>{
         return x * x + y * y + z * z
     }
 
+    // the square of the distance between two points
     func squaredDist(_ a: Point, _ b: Point) -> Double {
         let x = b.x - a.x
         let y = b.y - a.y
@@ -506,6 +605,14 @@ class HctNode<T: AnyObject>{
     var bit_field: UInt64 = 0
     var children: [HctNode<T>] = []
     var data: [HctItem<T>] = []
+
+    func everything() -> ArraySlice<HctItem<T>> {
+        if(bit_field == 0){
+            return data[0..<data.count]
+        } else {
+            return children.map { $0.everything() }.reduce([], +)
+        }
+    }
 
     func subdivide(depth: Int, tree: HctTree<T>) {
         let indices = data.map({ Int(tree.quickResolve(position: $0.position, at: depth)) })
