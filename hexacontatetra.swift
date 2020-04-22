@@ -478,27 +478,47 @@ class HctTree<T: AnyObject>{
     }
 */
     func lookup(region: BBox, cutoff: Int) -> ArraySlice<HctItem<T>> {
+    //func lookup(region: BBox, cutoff: Int) -> [T] {
         var results: ArraySlice<HctItem<T>> = []
-        descend(into: root, with: dims, region: region, results: &results, cutoff: cutoff)
+        //var results: [T] = []
+        let path = quickResolve(region.center)
+        descend(into: root, with: dims, region: region, path: path, depth: 0, results: &results, cutoff: cutoff)
         return results
     }
-    func descend(into: HctNode<T>, with: BBox, region: BBox, results: inout ArraySlice<HctItem<T>>, cutoff: Int) {
+    func descend(into: HctNode<T>, with: BBox, region: BBox, path: [UInt8], depth: Int, results: inout ArraySlice<HctItem<T>>, cutoff: Int) {
+    //func descend(into: HctNode<T>, with: BBox, region: BBox, path: [UInt8], depth: Int, results: inout [T], cutoff: Int) {
         if(results.count >= cutoff){
             return
         }
         if(into.bit_field != 0){
             let decoded = into.decode()
+
+            // take a shortcut if we can
             for i in 0..<decoded.count{
-                let q = with.selectQuadrant(decoded[i])
-                // TODO: optimize this to reduce the number of intersection tests in cases where decoded is big-ish (bigger than 8?)
-                if q.intersects(bbox: region){
-                    descend(into: into.children[i], with:q, region:region, results:&results, cutoff: cutoff)
+                if(decoded[i] == path[depth]){
+                    let q = with.selectQuadrant(decoded[i])
+                    descend(into: into.children[i], with:q, region:region, path: path, depth: depth+1,
+                            results:&results, cutoff: cutoff)
+                    if(results.count >= cutoff){
+                        return
+                    }
+                    break
+                }
+            }
+            for i in 0..<decoded.count{
+                if(decoded[i] != path[depth]){
+                    let q = with.selectQuadrant(decoded[i])
+                    if q.intersects(bbox: region){
+                        descend(into: into.children[i], with:q, region:region, path: path, depth: depth+1,
+                                results:&results, cutoff: cutoff)
+                    }
                 }
             }
         } else {
             for item in into.data{
                 if(region.contains(item.position)){
                     results.append(item)
+                    //results.append(item.data)
                 }
                 if(results.count >= cutoff){
                     return
