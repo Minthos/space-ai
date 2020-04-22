@@ -672,10 +672,10 @@ class Ship:Uid{
             var roid: Asteroid? = nil
             var roids: [Asteroid] = []
             if(self.cargo.capacity == 10){
-                //roids = self.currentSystem.findNearbyAsteroids(to: location, findAtLeast: 50)
-                let slice_roids = self.currentSystem.findNearbyAsteroids(to: location, findAtLeast: 50)
-                //roid = roids.randomElement()
-                roid = slice_roids.randomElement()?.data
+                roids = self.currentSystem.findNearbyAsteroids(to: location, findAtLeast: 50)
+                //let slice_roids = self.currentSystem.findNearbyAsteroids(to: location, findAtLeast: 50)
+                roid = roids.randomElement()
+                //roid = slice_roids.randomElement()?.data
                 if(roid?.precious == 0 && roid?.gas == 0){
                     roid = roids.first(where: { $0.precious > 0 }) ?? roid
                 }
@@ -684,7 +684,7 @@ class Ship:Uid{
                 if(random() % 10 != 0 && lastMinedLocation != nil){
                     location = lastMinedLocation!
                 } else {
-                    roid = self.currentSystem.findNearbyAsteroids(to: location).randomElement()?.data
+                    roid = self.currentSystem.findNearbyAsteroids(to: location).randomElement()
                     //roid = self.currentSystem.findNearbyAsteroids(to: location).randomElement()?.data
                 }
             }
@@ -1032,10 +1032,10 @@ class System:CelestialObject{
         return planets.flatMap{ $0.stations + $0.moons.flatMap{ $0.stations } }
     }
 
-    func findNearbyAsteroids(to: Point, findAtLeast: Int = 10) -> ArraySlice<HctItem<Asteroid>> {
-    //func findNearbyAsteroids(to: Point, findAtLeast: Int = 10) -> [Asteroid] {
-        var results: ArraySlice<HctItem<Asteroid>> = []
-        //var results: [Asteroid] = []
+    //func findNearbyAsteroids(to: Point, findAtLeast: Int = 10) -> ArraySlice<HctItem<Asteroid>> {
+    func findNearbyAsteroids(to: Point, findAtLeast: Int = 10) -> [Asteroid] {
+        //var results: ArraySlice<HctItem<Asteroid>> = []
+        var results: [Asteroid] = []
         var range = 1e3
         while(results.count < findAtLeast && range < 2 * SYSTEM_RADIUS){
             results = asteroidRegistry.lookup(region: BBox(center: to, halfsize: range), cutoff: max(100, findAtLeast))
