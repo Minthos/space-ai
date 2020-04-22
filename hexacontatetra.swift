@@ -39,6 +39,7 @@ struct BBox{
 
     var top: Point { get { return center + halfsize } }
     var bottom: Point { get { return center - halfsize } }
+    var pretty: String { get { return center.pretty + " halfsize: " + halfsize.pretty }}
 
     init(center: Point, halfsize: Double){
         self.center = center
@@ -275,9 +276,11 @@ class HctTree<T: AnyObject>{
 
         if(root.bit_field == 0){
             let before = root.data.count
+            assert(before == numItems)
             root.data.removeAll(where: { $0.data === item })
             numItems--
             assert(root.data.count == before - 1)
+            assert(root.data.count == numItems)
             return
         }
 
@@ -370,21 +373,56 @@ class HctTree<T: AnyObject>{
     This will produce all the points in the tree in order of increasing distance from the search point.
     The same algorithm works for KD trees as well.
     */
-    func maxDist(_ a: Point, _ b: Point) -> Double {
-        return max(abs(a.x - b.x), abs(a.y - b.y), abs(a.z - b.z))
+
+    func squaredDist(_ box: BBox, _ b: Point) -> Double {
+        let a = box.center
+        let x = max(0, abs(b.x - a.x) - box.halfsize)
+        let y = max(0, abs(b.y - a.y) - box.halfsize)
+        let z = max(0, abs(b.z - a.z) - box.halfsize)
+        return x * x + y * y + z * z
     }
+
+    func squaredDist(_ a: Point, _ b: Point) -> Double {
+        let x = b.x - a.x
+        let y = b.y - a.y
+        let z = b.z - a.z
+        return x * x + y * y + z * z
+    }
+
+    //func maxDist(_ a: Point, _ b: Point) -> Double {
+    //    return max(abs(a.x - b.x), abs(a.y - b.y), abs(a.z - b.z))
+    //}
 
     func kNearestNeighbor(k: Int, to: Point) -> [T] {
         //var path: [UInt8] = quickResolve(to)
         var queue: [(Double, BBox, HctNode<T>)] = [(0, dims, root)]
         var results: [T] = []
         while(results.count < k){
+            let s = queue.sorted(by: {$0.0 < $1.0}).map{ $0.0 }
+            let t = queue.map{ $0.0 }
+            var shouldPrint = false
+            for i in 0..<s.count{
+                if(s[i] != t[i]){
+                    print("\(s[i]) \(t[i])")
+                    shouldPrint = true
+                }
+            }
+            if shouldPrint{
+                print("---------------------------------------------------------")
+                for i in 0..<s.count{
+                    print("\(s[i].pretty) \(t[i].pretty)")
+                }
+                print("---------------------------------------------------------")
+                exit(0)
+            }
+            assert(queue.map({ $0.0 }) == queue.sorted(by: { $0.0 < $1.0 }).map({ $0.0 }))
             let (_, box, node) = queue.popFirst() ?? (Double.infinity, BBox(center: Point(0, 0, 0), halfsize: 0), nil)
             if(node == nil){
                 break
             } else if node!.data.count > 0 {
                 assert(node!.children.count == 0)
-                let sorted: [HctItem<T>] = node!.data.sorted(by: { maxDist($0.position, to) < maxDist($1.position, to) } )
+                //let sorted: [HctItem<T>] = node!.data.sorted(by: { maxDist($0.position, to) < maxDist($1.position, to) } )
+                let sorted: [HctItem<T>] = node!.data.sorted(by: { squaredDist($0.position, to) < squaredDist($1.position, to) } )
                 results.append(contentsOf: sorted.map({$0.data}))
                 //print(sorted.count)
                 //results.append(contentsOf: node!.data.sort(by: { $0.position < $1.position } ).map({$0.data}))
@@ -405,17 +443,23 @@ class HctTree<T: AnyObject>{
                     assert(calculated == decoded[i])
 
                     assert(box.contains(newBox.center))
-                    let distance = maxDist(newBox.center, to) - newBox.halfsize
+                    let distance = squaredDist(newBox, to)
+                    //let distance = maxDist(newBox.center, to) - newBox.halfsize
                     //abs(newBox.center.x - to.x), abs(newBox.center.y - to.y), abs(newBox.center.z - to.z))
                     children.append((distance, newBox, newNode))
                 }
-                children.sort(by:{ $0.0 < $1.0 })
-                let first = queue.firstIndex(where: { $0.0 > children[0].0  })
-                queue.insert(contentsOf: children, at: first ?? 0)
+                //children.sort(by:{ $0.0 < $1.0 })
+                //let first = queue.firstIndex(where: { $0.0 > children[0].0  })
+                queue = (queue + children).sorted(by:{ $0.0 < $1.0 })
+//                queue.insert(contentsOf: children, at: first ?? 0)
             } else {
                 assert(node!.children.count == 0)
                 assert(node!.data.count == 0)
-                assert(node === root)
+                if(node! !== root){
+                    print("\(hexString(node!.bit_field)) \(box.pretty)")
+                    print("\(hexString(root.bit_field)) \(dims.pretty)")
+                }
+                assert(node === root) // WTF!! tree should have been pruned if this assertion fails.
             }
         }
         return results
