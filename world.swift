@@ -25,6 +25,7 @@ let MAX_STATION_DISTANCE = 1e6 * KM
 
 let configString = """
 {
+    "usekNN": true,
     "randomSeed": 3,
     "numGalaxies": 2,
     "maxSystems": 5,
@@ -66,6 +67,7 @@ struct ResourceAmount: Decodable{
 }
 
 class Config: Decodable{
+    let usekNN: Bool
     let randomSeed: Int
     let numGalaxies: Int
     let maxSystems: Int
@@ -1024,15 +1026,17 @@ class System:CelestialObject{
     }
 
     func findNearbyAsteroids(to: Point, findAtLeast: Int = 1) -> [Asteroid] {
-        //return asteroidRegistry.kNearestNeighbor(k: findAtLeast, to: to)
-        
-        var results: [Asteroid] = []
-        var range = 1e3
-        while(results.count < findAtLeast && range < 2 * SYSTEM_RADIUS){
-            results = asteroidRegistry.lookup(region: BBox(center: to, halfsize: range))
-            range *= 2
+        if(config.usekNN){
+            return asteroidRegistry.kNearestNeighbor(k: max(10, findAtLeast), to: to)
+        } else {
+            var results: [Asteroid] = []
+            var range = 1e3
+            while(results.count < findAtLeast && range < 2 * SYSTEM_RADIUS){
+                results = asteroidRegistry.lookup(region: BBox(center: to, halfsize: range))
+                range *= 2
+            }
+            return results
         }
-        return results
     }
 
     func findNearestAsteroid(to: Point) -> Asteroid? {

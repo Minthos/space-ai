@@ -267,55 +267,6 @@ class HctTree<T: AnyObject>{
             depth++
         }
     }
-/*
-    func remove(item: T, position: Point){
-
-        if(root.bit_field == 0){
-            let before = root.data.count
-            assert(before == numItems)
-            root.data.removeAll(where: { $0.data === item })
-            numItems--
-            assert(root.data.count == before - 1)
-            assert(root.data.count == numItems)
-            return
-        }
-
-        var leaf = root
-        let path = quickResolve(position)
-        var depth = 0
-        var prev: [HctNode<T>] = []
-        while(true){
-            // descend deeper in the tree
-            let index = Int(path[depth])
-            if(leaf.bit_field & (1 << index) != 0){
-                let decoded = leaf.decode()
-                for i in 0..<decoded.count{
-                    if(decoded[i] == index){
-                        prev.append(leaf)
-                        leaf = leaf.children[i]
-                        let before = leaf.data.count
-                        if(before > 0){
-                            leaf.data.removeAll(where: { $0.data === item })
-                            if(leaf.data.count == 0){
-                                var p: HctNode<T>? = nil
-                                repeat{
-                                    p = prev.popLast()
-                                    p?.children.remove(at: i)
-                                    p?.bit_field ^= (1 << index)
-                                } while(p?.bit_field == 0 && !(p === root))
-                            }
-                            numItems--
-                            return
-                        }
-                    }
-                }
-            } else {
-                print("!!! Error! pathing failed in HctTree.remove!")
-            }
-            depth++
-        }
-    }
-*/
 
     func remove(item: T, position: Point){
 
@@ -446,78 +397,50 @@ class HctTree<T: AnyObject>{
         return x * x + y * y + z * z
     }
 
-    //func maxDist(_ a: Point, _ b: Point) -> Double {
-    //    return max(abs(a.x - b.x), abs(a.y - b.y), abs(a.z - b.z))
-    //}
-
-    func kNearestNeighbor(k: Int, to: Point) -> [T] {
-        //var path: [UInt8] = quickResolve(to)
+    func kNearestNeighbor(k: Int, to: Point, shouldSort: Bool = false) -> [T] {
         var queue: [(Double, BBox, HctNode<T>)] = [(0, dims, root)]
         var results: [T] = []
         while(results.count < k){
-        //    let s = queue.sorted(by: {$0.0 < $1.0}).map{ $0.0 }
-        //    let t = queue.map{ $0.0 }
-        //    var shouldPrint = false
-        //    for i in 0..<s.count{
-        //        if(s[i] != t[i]){
-        //            print("\(s[i]) \(t[i])")
-        //            shouldPrint = true
-        //        }
-        //    }
-        //    if shouldPrint{
-        //        print("---------------------------------------------------------")
-        //        for i in 0..<s.count{
-        //            print("\(s[i].pretty) \(t[i].pretty)")
-        //        }
-        //        print("---------------------------------------------------------")
-        //        exit(0)
-        //    }
-        //    assert(queue.map({ $0.0 }) == queue.sorted(by: { $0.0 < $1.0 }).map({ $0.0 }))
             let (_, box, node) = queue.popFirst() ?? (Double.infinity, BBox(center: Point(0, 0, 0), halfsize: 0), nil)
             if(node == nil){
                 break
             } else if node!.data.count > 0 {
                 assert(node!.children.count == 0)
-                //let sorted: [HctItem<T>] = node!.data.sorted(by: { maxDist($0.position, to) < maxDist($1.position, to) } )
-                let sorted: [HctItem<T>] = node!.data.sorted(by: { squaredDist($0.position, to) < squaredDist($1.position, to) } )
-                results.append(contentsOf: sorted.map({$0.data}))
-                //print(sorted.count)
-                //results.append(contentsOf: node!.data.sort(by: { $0.position < $1.position } ).map({$0.data}))
+                if(shouldSort){
+                    let sorted: [HctItem<T>] = node!.data.sorted(by: { squaredDist($0.position, to) < squaredDist($1.position, to) } )
+                    results.append(contentsOf: sorted.map({$0.data}))
+                } else {
+                    results.append(contentsOf: node!.data.map({$0.data}))
+                }
             } else if node!.children.count > 0 {
                 // calculate greatest distance in each dimension from point to center of each child node
                 // sort child nodes by distance in most distant dimension
                 // merge into queue
                 let decoded = node!.decode()
                 assert(decoded.count == node!.children.count)
-                //print(decoded.map({ String(format:"0x%x", $0)}).joined(separator: ", "))
                 var children: [(Double, BBox, HctNode<T>)] = []
                 for i in 0..<decoded.count{
                     let newNode = node!.children[i]
                     let newBox = index2box(index: decoded[i], outer: box)
-
                     let calculated = index6bit(center: box.center, halfsize: box.halfsize, point: newBox.center)
-                    //print(String(format:"0x%x, 0x%x", calculated, decoded[i]))
                     assert(calculated == decoded[i])
-
                     assert(box.contains(newBox.center))
                     let distance = squaredDist(newBox, to)
-                    //let distance = maxDist(newBox.center, to) - newBox.halfsize
-                    //abs(newBox.center.x - to.x), abs(newBox.center.y - to.y), abs(newBox.center.z - to.z))
                     children.append((distance, newBox, newNode))
                 }
-                //children.sort(by:{ $0.0 < $1.0 })
-                //let first = queue.firstIndex(where: { $0.0 > children[0].0  })
-                //queue = (queue + children).sorted(by:{ $0.0 < $1.0 })
-                queue = (children + queue).sorted(by:{ $0.0 < $1.0 })
-//                queue.insert(contentsOf: children, at: first ?? 0)
+                children.sort(by:{ $0.0 < $1.0 })
+
+                var ci = 0
+                var qi = 0
+                repeat{
+                    if(qi == queue.count || children[ci].0 < queue[qi].0){
+                        queue.insert(children[ci], at:qi)
+                        ci++
+                    }
+                    qi++
+                } while (ci < children.count && qi <= queue.count)
             } else {
-                assert(node!.children.count == 0)
-                assert(node!.data.count == 0)
-                if(node! !== root){
-                    print("\(hexString(node!.bit_field)) \(box.pretty)")
-                    print("\(hexString(root.bit_field)) \(dims.pretty)")
-                }
-                assert(node === root) // WTF!! tree should have been pruned if this assertion fails.
+                assert(node === root)
             }
         }
         return results
