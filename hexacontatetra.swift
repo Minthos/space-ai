@@ -267,12 +267,8 @@ class HctTree<T: AnyObject>{
             depth++
         }
     }
-
+/*
     func remove(item: T, position: Point){
-        let path = quickResolve(position)
-        var prev: HctNode<T>? = nil
-        var leaf = root
-        var depth = 0
 
         if(root.bit_field == 0){
             let before = root.data.count
@@ -284,6 +280,10 @@ class HctTree<T: AnyObject>{
             return
         }
 
+        var leaf = root
+        let path = quickResolve(position)
+        var depth = 0
+        var prev: [HctNode<T>] = []
         while(true){
             // descend deeper in the tree
             let index = Int(path[depth])
@@ -291,14 +291,71 @@ class HctTree<T: AnyObject>{
                 let decoded = leaf.decode()
                 for i in 0..<decoded.count{
                     if(decoded[i] == index){
-                        prev = leaf
+                        prev.append(leaf)
                         leaf = leaf.children[i]
                         let before = leaf.data.count
                         if(before > 0){
                             leaf.data.removeAll(where: { $0.data === item })
                             if(leaf.data.count == 0){
-                                prev!.children.remove(at: i)
-                                prev!.bit_field ^= (1 << index)
+                                var p: HctNode<T>? = nil
+                                repeat{
+                                    p = prev.popLast()
+                                    p?.children.remove(at: i)
+                                    p?.bit_field ^= (1 << index)
+                                } while(p?.bit_field == 0 && !(p === root))
+                            }
+                            numItems--
+                            return
+                        }
+                    }
+                }
+            } else {
+                print("!!! Error! pathing failed in HctTree.remove!")
+            }
+            depth++
+        }
+    }
+*/
+
+    func remove(item: T, position: Point){
+
+        if(root.bit_field == 0){
+            let before = root.data.count
+            assert(before == numItems)
+            root.data.removeAll(where: { $0.data === item })
+            numItems--
+            assert(root.data.count == before - 1)
+            assert(root.data.count == numItems)
+            return
+        }
+
+        var leaf = root
+        let path = quickResolve(position)
+        var depth = 0
+        var prev: [HctNode<T>] = []
+        var previ: [Int] = []
+        while(true){
+            // descend deeper in the tree
+            let index = Int(path[depth])
+            if(leaf.bit_field & (1 << index) != 0){
+                let decoded = leaf.decode()
+                for i in 0..<decoded.count{
+                    if(decoded[i] == index){
+                        prev.append(leaf)
+                        previ.append(i)
+                        leaf = leaf.children[i]
+                        let before = leaf.data.count
+                        if(before > 0){
+                            leaf.data.removeAll(where: { $0.data === item })
+                            if(leaf.data.count == 0){
+                                var p: HctNode<T>? = nil
+                                repeat{
+                                    p = prev.popLast()
+                                    let pi = previ.popLast()
+                                    p?.children.remove(at: pi!)
+                                    p?.bit_field ^= (1 << Int(path[depth]))
+                                    depth--
+                                } while(p?.bit_field == 0 && !(p === root))
                             }
                             numItems--
                             return
@@ -398,24 +455,24 @@ class HctTree<T: AnyObject>{
         var queue: [(Double, BBox, HctNode<T>)] = [(0, dims, root)]
         var results: [T] = []
         while(results.count < k){
-            let s = queue.sorted(by: {$0.0 < $1.0}).map{ $0.0 }
-            let t = queue.map{ $0.0 }
-            var shouldPrint = false
-            for i in 0..<s.count{
-                if(s[i] != t[i]){
-                    print("\(s[i]) \(t[i])")
-                    shouldPrint = true
-                }
-            }
-            if shouldPrint{
-                print("---------------------------------------------------------")
-                for i in 0..<s.count{
-                    print("\(s[i].pretty) \(t[i].pretty)")
-                }
-                print("---------------------------------------------------------")
-                exit(0)
-            }
-            assert(queue.map({ $0.0 }) == queue.sorted(by: { $0.0 < $1.0 }).map({ $0.0 }))
+        //    let s = queue.sorted(by: {$0.0 < $1.0}).map{ $0.0 }
+        //    let t = queue.map{ $0.0 }
+        //    var shouldPrint = false
+        //    for i in 0..<s.count{
+        //        if(s[i] != t[i]){
+        //            print("\(s[i]) \(t[i])")
+        //            shouldPrint = true
+        //        }
+        //    }
+        //    if shouldPrint{
+        //        print("---------------------------------------------------------")
+        //        for i in 0..<s.count{
+        //            print("\(s[i].pretty) \(t[i].pretty)")
+        //        }
+        //        print("---------------------------------------------------------")
+        //        exit(0)
+        //    }
+        //    assert(queue.map({ $0.0 }) == queue.sorted(by: { $0.0 < $1.0 }).map({ $0.0 }))
             let (_, box, node) = queue.popFirst() ?? (Double.infinity, BBox(center: Point(0, 0, 0), halfsize: 0), nil)
             if(node == nil){
                 break
@@ -450,7 +507,8 @@ class HctTree<T: AnyObject>{
                 }
                 //children.sort(by:{ $0.0 < $1.0 })
                 //let first = queue.firstIndex(where: { $0.0 > children[0].0  })
-                queue = (queue + children).sorted(by:{ $0.0 < $1.0 })
+                //queue = (queue + children).sorted(by:{ $0.0 < $1.0 })
+                queue = (children + queue).sorted(by:{ $0.0 < $1.0 })
 //                queue.insert(contentsOf: children, at: first ?? 0)
             } else {
                 assert(node!.children.count == 0)
