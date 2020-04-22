@@ -1031,21 +1031,13 @@ class System:CelestialObject{
     }
 
     func findNearbyAsteroids(to: Point, findAtLeast: Int = 10) -> ArraySlice<HctItem<Asteroid>> {
-    //func findNearbyAsteroids(to: Point, findAtLeast: Int = 1) -> [Asteroid] {
-    //    if(config.usekNN){
-    //        return asteroidRegistry.kNearestNeighbor(k: max(10, findAtLeast), to: to)
-    //    } else {
-            var results: ArraySlice<HctItem<Asteroid>> = []
-//            var results: [Asteroid] = []
-            var range = 1e3
-            while(results.count < findAtLeast && range < 2 * SYSTEM_RADIUS){
-                //results = asteroidRegistry.lookup(region: BBox(center: to, halfsize: range))
-                //results = asteroidRegistry.quickLookup(region: BBox(center: to, halfsize: range), cutoff:max(10, findAtLeast))
-                results = asteroidRegistry.metaLookup(region: BBox(center: to, halfsize: range), cutoff:max(10, findAtLeast))
-                range *= 2
-            }
-            return results
-    //    }
+        var results: ArraySlice<HctItem<Asteroid>> = []
+        var range = 1e3
+        while(results.count < findAtLeast && range < 2 * SYSTEM_RADIUS){
+            results = asteroidRegistry.lookup(region: BBox(center: to, halfsize: range), cutoff: findAtLeast)
+            range *= 2
+        }
+        return results
     }
 /*
     func findNearestAsteroid(to: Point) -> Asteroid? {

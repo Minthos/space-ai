@@ -332,7 +332,8 @@ class HctTree<T: AnyObject>{
     }
 
     func values() -> [T] {
-        return lookup(region: dims)
+        return root.everything().map{ $0.data }
+//        return lookup(region: dims)
     }
 
     func indexDistance(_ from: Int, _ to: Int) -> Int {
@@ -374,10 +375,13 @@ class HctTree<T: AnyObject>{
     }
 
     func metaDescend(xOverlap: Overlap, yOverlap: Overlap, zOverlap: Overlap, node: HctNode<T>,
-                     pathUpper: [UInt8], pathLower: [UInt8], depth: Int,
-                     results: inout ArraySlice<HctItem<T>>) {
+                     pathUpper: [UInt8], pathLower: [UInt8], depth: Int, region: BBox,
+                     results: inout ArraySlice<HctItem<T>>, cutoff: Int) {
+        if results.count >= cutoff{
+            return
+        }
         if(node.bit_field == 0){
-            results += node.data[0..<node.data.count]
+            results += node.data.filter{ region.contains($0.position) }
             return
         }
         var partial: [(Int, Metadata)] = []
@@ -396,7 +400,8 @@ class HctTree<T: AnyObject>{
         }
         for (i, m) in partial{
             metaDescend(xOverlap: m.x, yOverlap: m.y, zOverlap: m.z, node: node.children[i],
-                        pathUpper: pathUpper, pathLower: pathLower, depth: depth+1, results: &results)
+                        pathUpper: pathUpper, pathLower: pathLower, depth: depth+1, region: region,
+                        results: &results, cutoff: cutoff)
         }
     }
 
@@ -405,7 +410,8 @@ class HctTree<T: AnyObject>{
         let pathLower = quickResolve(region.bottom)
         var results: ArraySlice<HctItem<T>> = []
         metaDescend(xOverlap: .partial, yOverlap: .partial, zOverlap: .partial, node: root,
-                    pathUpper: pathUpper, pathLower: pathLower, depth: 0, results: &results)
+                    pathUpper: pathUpper, pathLower: pathLower, depth: 0, region: region,
+                    results: &results, cutoff: cutoff)
         return results
     }
 /*
@@ -471,25 +477,31 @@ class HctTree<T: AnyObject>{
         }
     }
 */
-    func lookup(region: BBox) -> [T] {
-        var results: [T] = []
-        descend(into: root, with: dims, region: region, results: &results)
+    func lookup(region: BBox, cutoff: Int) -> ArraySlice<HctItem<T>> {
+        var results: ArraySlice<HctItem<T>> = []
+        descend(into: root, with: dims, region: region, results: &results, cutoff: cutoff)
         return results
     }
-    func descend(into: HctNode<T>, with: BBox, region: BBox, results: inout [T]) {
+    func descend(into: HctNode<T>, with: BBox, region: BBox, results: inout ArraySlice<HctItem<T>>, cutoff: Int) {
+        if(results.count >= cutoff){
+            return
+        }
         if(into.bit_field != 0){
             let decoded = into.decode()
             for i in 0..<decoded.count{
                 let q = with.selectQuadrant(decoded[i])
                 // TODO: optimize this to reduce the number of intersection tests in cases where decoded is big-ish (bigger than 8?)
                 if q.intersects(bbox: region){
-                    descend(into: into.children[i], with:q, region:region, results:&results)
+                    descend(into: into.children[i], with:q, region:region, results:&results, cutoff: cutoff)
                 }
             }
         } else {
             for item in into.data{
                 if(region.contains(item.position)){
-                    results.append(item.data)
+                    results.append(item)
+                }
+                if(results.count >= cutoff){
+                    return
                 }
             }
         }
@@ -610,7 +622,7 @@ class HctNode<T: AnyObject>{
         if(bit_field == 0){
             return data[0..<data.count]
         } else {
-            return children.map { $0.everything() }.reduce([], +)
+            return children.map{ $0.everything() }.reduce([], +)
         }
     }
 
