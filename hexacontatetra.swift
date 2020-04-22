@@ -9,6 +9,17 @@ import Foundation
 // MAXDEPTH is 26 because Double only has 53 bits of precision and each level represents 2 bits of spatial resolution
 let MAXDEPTH = 26
 
+extension Array {
+    @inlinable
+    public mutating func popFirst() -> Element? {
+        if isEmpty {
+            return nil
+        } else {
+            return removeFirst()
+        }
+    }
+}
+
 // round up to nearest power of 2
 func potimizeDouble(_ number: Double) -> Double{
     if(number.binade == number){
@@ -144,6 +155,7 @@ class HctTree<T: AnyObject>{
                 index2bit(center: center.z, halfsize: halfsize, quartersize: quartersize, point: point.z) << 4
     }
     
+    // return the bit_field indices of the path leading to point for each level of the tree
     func quickResolve(_ position: Point) -> [UInt8]{
         // translate the points so that 0,0,0 is the bottom of our number range
         // (assumes dims is centered on 0,0,0 as it should be)
@@ -169,6 +181,7 @@ class HctTree<T: AnyObject>{
         return result.reversed()
     }
 
+    // return the bit_field index of the path leading to point at one specific level of the tree
     func quickResolve(position: Point, at depth: Int) -> UInt8{
         // translate the points so that 0,0,0 is the bottom of our number range
         // (assumes dims is centered on 0,0,0 as it should be)
@@ -357,8 +370,45 @@ class HctTree<T: AnyObject>{
     This will produce all the points in the tree in order of increasing distance from the search point.
     The same algorithm works for KD trees as well.
     */
+    func kNearestNeighbor(k: Int, to: Point) -> [T] {
+        //var path: [UInt8] = quickResolve(to)
+        var queue: [(Double, BBox, HctNode<T>)] = [(0, dims, root)]
+        var results: [T] = []
+        while(results.count < k){
+            let (_, box, node) = queue.popFirst() ?? (Double.infinity, BBox(center: Point(0, 0, 0), halfsize: 0), nil)
+            if(node == nil){
+                break
+            } else if node!.data.count > 0 {
+                results.append(contentsOf: node!.data.map({$0.data}))
+            } else if node!.children.count > 0 {
+                // calculate greatest distance in each dimension from point to center of each child node
+                // sort child nodes by distance in most distant dimension
+                // merge into queue
+                let decoded = node!.decode()
+                var children: [(Double, BBox, HctNode<T>)] = []
+                for i in 0..<decoded.count{
+                    let newNode = node!.children[i]
+                    let newBox = index2box(index: decoded[i], outer: box)
+                    let distance = max(abs(newBox.center.x - to.x), abs(newBox.center.y - to.y), abs(newBox.center.z - to.z))
+                    children.append((distance, newBox, newNode))
+                }
+                children.sort(by:{ $0.0 < $1.0 })
+                let first = queue.firstIndex(where: { $0.0 > children[0].0  })
+                queue.insert(contentsOf: children, at: first ?? 0)
+            } else {
+                break
+            }
+        }
+        return results
+    }
 
-
+    func index2box(index: UInt8, outer: BBox) -> BBox {
+        let eighthsize = outer.halfsize * 0.25
+        let center = Point(outer.center.x + (Double(index & 0x03) * eighthsize) - (3 * eighthsize),
+                          outer.center.y + (Double((index << 2) & 0x03) * eighthsize) - (3 * eighthsize),
+                          outer.center.z + (Double((index << 4) & 0x03) * eighthsize) - (3 * eighthsize))
+        return BBox(center: center, halfsize: eighthsize)
+    }
 }
 
 class HctNode<T: AnyObject>{

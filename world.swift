@@ -1024,13 +1024,15 @@ class System:CelestialObject{
     }
 
     func findNearbyAsteroids(to: Point, findAtLeast: Int = 1) -> [Asteroid] {
+        return asteroidRegistry.kNearestNeighbor(k: findAtLeast, to: to)
+        /*
         var results: [Asteroid] = []
         var range = 1e3
         while(results.count < findAtLeast && range < 2 * SYSTEM_RADIUS){
-            results = asteroidRegistry.lookup(region: BBox(center: to, halfsize: range))
+            /results = asteroidRegistry.lookup(region: BBox(center: to, halfsize: range))
             range *= 2
         }
-        return results
+        return results*/
     }
 
     func findNearestAsteroid(to: Point) -> Asteroid? {
