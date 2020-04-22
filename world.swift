@@ -988,7 +988,7 @@ class Planet:CelestialObject{
 class System:CelestialObject{
     let randomSeed: Int
     let shipsRegistry: HctTree<Ship> = HctTree<Ship>(initialSize: SYSTEM_RADIUS, binSize: 64)
-    let asteroidRegistry: HctTree<Asteroid> = HctTree<Asteroid>(initialSize: SYSTEM_RADIUS, binSize: 1024)
+    let asteroidRegistry: HctTree<Asteroid> = HctTree<Asteroid>(initialSize: SYSTEM_RADIUS, binSize: 256)
     var initialAsteroids: Int = 0
 
     var planets = [Planet]()
