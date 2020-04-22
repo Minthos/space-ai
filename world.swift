@@ -25,7 +25,7 @@ let MAX_STATION_DISTANCE = 1e6 * KM
 
 let configString = """
 {
-    "usekNN": true,
+    "usekNN": false,
     "randomSeed": 3,
     "numGalaxies": 2,
     "maxSystems": 5,
@@ -668,8 +668,9 @@ class Ship:Uid{
             var roid: Asteroid? = nil
             var roids: [Asteroid] = []
             if(self.cargo.capacity == 10){
-                roids = self.currentSystem.findNearbyAsteroids(to: location, findAtLeast: 50)
-                roid = roids.randomElement()
+                //roids = self.currentSystem.findNearbyAsteroids(to: location, findAtLeast: 50)
+                let slice_roids = self.currentSystem.findNearbyAsteroids(to: location, findAtLeast: 50)
+                roid = slice_roids.randomElement()?.data
                 if(roid?.precious == 0 && roid?.gas == 0){
                     roid = roids.first(where: { $0.precious > 0 }) ?? roid
                 }
@@ -678,7 +679,7 @@ class Ship:Uid{
                 if(random() % 10 != 0 && lastMinedLocation != nil){
                     location = lastMinedLocation!
                 } else {
-                    roid = self.currentSystem.findNearbyAsteroids(to: location).randomElement()
+                    roid = self.currentSystem.findNearbyAsteroids(to: location).randomElement()?.data
                 }
             }
             if roid == nil{
@@ -1025,20 +1026,23 @@ class System:CelestialObject{
         return planets.flatMap{ $0.stations + $0.moons.flatMap{ $0.stations } }
     }
 
-    func findNearbyAsteroids(to: Point, findAtLeast: Int = 1) -> [Asteroid] {
-        if(config.usekNN){
-            return asteroidRegistry.kNearestNeighbor(k: max(10, findAtLeast), to: to)
-        } else {
-            var results: [Asteroid] = []
+    func findNearbyAsteroids(to: Point, findAtLeast: Int = 1) -> ArraySlice<HctItem<Asteroid>> {
+    //func findNearbyAsteroids(to: Point, findAtLeast: Int = 1) -> [Asteroid] {
+    //    if(config.usekNN){
+    //        return asteroidRegistry.kNearestNeighbor(k: max(10, findAtLeast), to: to)
+    //    } else {
+            var results: ArraySlice<HctItem<Asteroid>> = []
+//            var results: [Asteroid] = []
             var range = 1e3
             while(results.count < findAtLeast && range < 2 * SYSTEM_RADIUS){
-                results = asteroidRegistry.lookup(region: BBox(center: to, halfsize: range))
+                //results = asteroidRegistry.lookup(region: BBox(center: to, halfsize: range))
+                results = asteroidRegistry.quickLookup(region: BBox(center: to, halfsize: range), cutoff:findAtLeast)
                 range *= 2
             }
             return results
-        }
+    //    }
     }
-
+/*
     func findNearestAsteroid(to: Point) -> Asteroid? {
         var nearest: Asteroid? = nil
         let candidates = findNearbyAsteroids(to: to)
@@ -1049,7 +1053,7 @@ class System:CelestialObject{
         }
         return nearest
     }
-
+*/
     func nearbyStations(to: Point) -> [Station] {
         return(stations().sorted(by: { distance(to, $0.positionCartesian) < distance(to, $1.positionCartesian) } ))
     }

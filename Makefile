@@ -14,7 +14,7 @@ build:
 debug:
 	clang $(CLANG_DEBUG) -c *.c
 	swiftc $(INCLUDES) $(DEBUG) $(SRC) $(OBJ)
-	cp main space-ai/.build/x86_64-unknown-linux-gnu/debug/space-ai
+#	cp main space-ai/.build/x86_64-unknown-linux-gnu/debug/space-ai
 
 profile:
 	clang $(CLANG_ARGS) -fdebug-info-for-profiling -c *.c

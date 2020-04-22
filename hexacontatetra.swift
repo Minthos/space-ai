@@ -335,12 +335,50 @@ class HctTree<T: AnyObject>{
         return lookup(region: dims)
     }
 
+    func indexDistance(_ from: Int, _ to: Int) -> Int {
+        let x = Int((from & 3) - to & 3)
+        let y = Int(((from >> 2) & 3) - ((to >> 2) & 3))
+        let z = Int(((from >> 4) & 3) - ((to >> 4) & 3))
+        return x * x + y * y + z * z
+    }
+
+    func quickLookup(region: BBox, cutoff: Int) -> ArraySlice<HctItem<T>> {
+        let path = quickResolve(region.center)
+        return quickDescend(into: root, with: dims, region: region, cutoff: cutoff, path: path, depth:0)
+    }
+
+    func quickDescend(into: HctNode<T>, with: BBox, region: BBox, cutoff: Int, path: [UInt8], depth: Int) -> ArraySlice<HctItem<T>> {
+        if(into.bit_field == 0){
+            return into.data[0..<min(cutoff, into.data.count)]
+        }
+        let decoded = into.decode()
+        var nearest = 0
+        var distNearest = 28 // max distance should be (3*3) * 3 = 27
+        for i in 0..<decoded.count{
+            if(decoded[i] == path[depth]){
+                let q = with.selectQuadrant(decoded[i])
+                return quickDescend(into: into.children[i], with:q, region:region, cutoff:cutoff, path:path, depth:depth+1)
+            }
+            let d = indexDistance(Int(decoded[i]), Int(path[depth]))
+            if(d < distNearest){
+                distNearest = d
+                nearest = i
+            }
+        }
+        let q = with.selectQuadrant(decoded[nearest])
+        if q.intersects(bbox: region){
+            return quickDescend(into: into.children[nearest], with:q, region:region, cutoff:cutoff, path:path, depth:depth+1)
+        }
+        else{
+            return []
+        }
+    }
+
     func lookup(region: BBox) -> [T] {
         var results: [T] = []
         descend(into: root, with: dims, region: region, results: &results)
         return results
     }
-
     func descend(into: HctNode<T>, with: BBox, region: BBox, results: inout [T]) {
         if(into.bit_field != 0){
             let decoded = into.decode()
