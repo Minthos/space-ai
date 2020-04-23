@@ -22,8 +22,8 @@ extension Array {
 }
 
 // round up to nearest power of 2
-func potimizeDouble(_ number: Double) -> Double{
-    if(number.binade == number){
+func potimizeDouble(_ number: Double) -> Double {
+    if(number.binade == number) {
         return number
     } else {
         return number.binade * 2
@@ -34,7 +34,7 @@ func hexString(_ number: UInt64) -> String {
     return String(format: "%llx", number)
 }
 
-struct BBox{
+struct BBox {
     var center: Point
     var halfsize: Double
 
@@ -42,19 +42,19 @@ struct BBox{
     var bottom: Point { get { return center - halfsize } }
     var pretty: String { get { return center.pretty + " halfsize: " + halfsize.pretty }}
 
-    init(center: Point, halfsize: Double){
+    init(center: Point, halfsize: Double) {
         self.center = center
         self.halfsize = halfsize
     }
 
-    init(top: Point, bottom: Point){
+    init(top: Point, bottom: Point) {
         self.center = (top + bottom) * 0.5
         self.halfsize = abs(top.x - bottom.x) * 0.5
     }
    
     // returns a (1/4, 1/4, 1/4) size section of a bounding box.
     // Which of the 64 possible subsections is indicated by the argument "index"
-    func selectQuadrant(_ index: UInt8) -> BBox{
+    func selectQuadrant(_ index: UInt8) -> BBox {
         let xindex = Double(index & 0x03)
         let yindex = Double((index >> 2) & 0x03)
         let zindex = Double((index >> 4) & 0x03)
@@ -67,13 +67,13 @@ struct BBox{
                     halfsize: eighthsize)
     }
 
-    func contains(_ point: Point) -> Bool{
+    func contains(_ point: Point) -> Bool {
         return( abs(point.x - center.x) < halfsize &&
                 abs(point.y - center.y) < halfsize &&
                 abs(point.z - center.z) < halfsize )
     }
 
-    func intersects(bbox: BBox) -> Bool{
+    func intersects(bbox: BBox) -> Bool {
         let collisionRadius = bbox.halfsize + halfsize
         return( abs(bbox.center.x - center.x) < collisionRadius &&
                 abs(bbox.center.y - center.y) < collisionRadius &&
@@ -86,19 +86,19 @@ struct BBox{
 
 }
 
-struct HctItem<T: AnyObject>{
+struct HctItem<T: AnyObject> {
     let data: T
     let position: Point
 }
 
 
-class HctTree<T: AnyObject>{
+class HctTree<T: AnyObject> {
     var numItems: Int = 0
     var root: HctNode<T> = HctNode<T>()
     var dims: BBox = BBox(center: Point(0,0,0), halfsize: 0)
     let BINSIZE: Int // 1024 seems to work well for asteroids, 64 seems to work well for ships. I don't know why.
 
-    init(initialSize: Double, binSize: Int = 1024){
+    init(initialSize: Double, binSize: Int = 1024) {
         let extent = potimizeDouble(initialSize)
         dims.halfsize = extent
         BINSIZE = binSize
@@ -106,7 +106,7 @@ class HctTree<T: AnyObject>{
     
   
     // return the bit_field indices of the path leading to point for each level of the tree
-    func quickResolve(_ position: Point) -> [UInt8]{
+    func quickResolve(_ position: Point) -> [UInt8] {
         // translate the points so that 0,0,0 is the bottom of our number range
         // (assumes dims is centered on 0,0,0 as it should be)
         // normalize magnitude to map each level to 2 bits of an Int
@@ -132,7 +132,7 @@ class HctTree<T: AnyObject>{
     }
 
     // return the bit_field index of the path leading to point at one specific level of the tree
-    func quickResolve(position: Point, at depth: Int) -> UInt8{
+    func quickResolve(position: Point, at depth: Int) -> UInt8 {
         // translate the points so that 0,0,0 is the bottom of our number range
         // (assumes dims is centered on 0,0,0 as it should be)
         // normalize magnitude to map each level to 2 bits of an Int
@@ -147,8 +147,8 @@ class HctTree<T: AnyObject>{
         return UInt8( x | y << 2 | z << 4 )
     }
 
-    func insert(item: T, position: Point){
-        if !dims.contains(position){
+    func insert(item: T, position: Point) {
+        if !dims.contains(position) {
             print("PANIC! attempting to insert object outside the bounds of the spatial tree: \(position)")
             assert(false)
         }
@@ -156,11 +156,11 @@ class HctTree<T: AnyObject>{
         var leaf = root
         var depth = 0
 
-        while(true){
-            if(leaf.bit_field == 0){
+        while(true) {
+            if(leaf.bit_field == 0) {
                 leaf.data.append(HctItem(data: item, position: position))
                 // max BINSIZE items per leaf node unless we are at max depth
-                if(leaf.data.count > BINSIZE && depth < MAXDEPTH){
+                if(leaf.data.count > BINSIZE && depth < MAXDEPTH) {
                     leaf.subdivide(depth: depth, tree: self, BINSIZE: BINSIZE)
                 }
                 numItems++
@@ -169,10 +169,10 @@ class HctTree<T: AnyObject>{
 
             // descend deeper in the tree
             let index = Int(path[depth])
-            if(leaf.bit_field & (1 << index) != 0){
+            if(leaf.bit_field & (1 << index) != 0) {
                 let decoded = leaf.decode()
-                for i in 0..<decoded.count{
-                    if(decoded[i] == index){
+                for i in 0..<decoded.count {
+                    if(decoded[i] == index) {
                         leaf = leaf.children[i]
                         break
                     }
@@ -181,8 +181,8 @@ class HctTree<T: AnyObject>{
                 let newNode = HctNode<T>()
                 leaf.bit_field |= (1 << index)
                 let decoded = leaf.decode()
-                for i in 0..<decoded.count{
-                    if(decoded[i] == index){
+                for i in 0..<decoded.count {
+                    if(decoded[i] == index) {
                         leaf.children.insert(newNode, at: i)
                         leaf = newNode
                         break
@@ -193,9 +193,9 @@ class HctTree<T: AnyObject>{
         }
     }
 
-    func remove(item: T, position: Point){
+    func remove(item: T, position: Point) {
 
-        if(root.bit_field == 0){
+        if(root.bit_field == 0) {
             let before = root.data.count
             assert(before == numItems)
             root.data.removeAll(where: { $0.data === item })
@@ -210,22 +210,22 @@ class HctTree<T: AnyObject>{
         var depth = 0
         var prev: [HctNode<T>] = []
         var previ: [Int] = []
-        while(true){
+        while(true) {
             // descend deeper in the tree
             let index = Int(path[depth])
-            if(leaf.bit_field & (1 << index) != 0){
+            if(leaf.bit_field & (1 << index) != 0) {
                 let decoded = leaf.decode()
-                for i in 0..<decoded.count{
-                    if(decoded[i] == index){
+                for i in 0..<decoded.count {
+                    if(decoded[i] == index) {
                         prev.append(leaf)
                         previ.append(i)
                         leaf = leaf.children[i]
                         let before = leaf.data.count
-                        if(before > 0){
+                        if(before > 0) {
                             leaf.data.removeAll(where: { $0.data === item })
-                            if(leaf.data.count == 0){
+                            if(leaf.data.count == 0) {
                                 var p: HctNode<T>? = nil
-                                repeat{
+                                repeat {
                                     p = prev.popLast()
                                     let pi = previ.popLast()
                                     p?.children.remove(at: pi!)
@@ -246,9 +246,9 @@ class HctTree<T: AnyObject>{
     }
 
     // move an item to a different position and update the tree accordingly
-    func relocate(item: T, from: Point, to: Point){
+    func relocate(item: T, from: Point, to: Point) {
         let before = numItems
-        if let ship = item as? Ship{
+        if let ship = item as? Ship {
             assert(ship.positionCartesian == from)
         }
         remove(item: item, position:from)
@@ -259,7 +259,7 @@ class HctTree<T: AnyObject>{
     
     // returns all the items in the tree
     func values() -> [T] {
-        return root.everything().map{ $0.data }
+        return root.everything().map { $0.data }
     }
 
     // very fast but if you want accurate results you must set a high cutoff and filter the results by box-point intersection
@@ -270,19 +270,19 @@ class HctTree<T: AnyObject>{
     }
 
     func descend(into: HctNode<T>, with: BBox, region: BBox, results: inout [T], cutoff: Int) {
-        if(results.count >= cutoff){
+        if(results.count >= cutoff) {
             return
         }
-        if(into.bit_field != 0){
+        if(into.bit_field != 0) {
             let decoded = into.decode()
-            for i in 0..<decoded.count{
+            for i in 0..<decoded.count {
                 let q = with.selectQuadrant(decoded[i])
-                if q.intersects(bbox: region){
+                if q.intersects(bbox: region) {
                     descend(into: into.children[i], with:q, region:region, results:&results, cutoff: cutoff)
                 }
             }
         } else {
-            results.append(contentsOf:into.data.map{ $0.data })
+            results.append(contentsOf:into.data.map { $0.data })
         }
     }
 
@@ -308,13 +308,13 @@ class HctTree<T: AnyObject>{
     This will produce all the points in the tree in order of increasing distance from the search point.
     The same algorithm works for KD trees as well.
     */
-    func index2bit(center: Double, halfsize: Double, quartersize: Double, point: Double) -> UInt8{
+    func index2bit(center: Double, halfsize: Double, quartersize: Double, point: Double) -> UInt8 {
         let bottom = center - halfsize
         let result = UInt8((point - bottom) / quartersize)
         return result
     }
 
-    func index6bit(center: Point, halfsize: Double, point: Point) -> UInt8{
+    func index6bit(center: Point, halfsize: Double, point: Point) -> UInt8 {
         let quartersize = halfsize * 0.5
         return index2bit(center: center.x, halfsize: halfsize, quartersize: quartersize, point: point.x) |
                 index2bit(center: center.y, halfsize: halfsize, quartersize: quartersize, point: point.y) << 2 |
@@ -342,17 +342,17 @@ class HctTree<T: AnyObject>{
     func kNearestNeighbor(k: Int, to: Point, shouldSort: Bool = false) -> [T] {
         var queue: [(Double, BBox, HctNode<T>)] = [(0, dims, root)]
         var results: [T] = []
-        while(results.count < k){
+        while(results.count < k) {
             let (_, box, node) = queue.popFirst() ?? (Double.infinity, BBox(center: Point(0, 0, 0), halfsize: 0), nil)
-            if(node == nil){
+            if(node == nil) {
                 break
             } else if node!.data.count > 0 {
                 assert(node!.children.count == 0)
-                if(shouldSort){
+                if(shouldSort) {
                     let sorted: [HctItem<T>] = node!.data.sorted(by: { squaredDist($0.position, to) < squaredDist($1.position, to) } )
-                    results.append(contentsOf: sorted.map({$0.data}))
+                    results.append(contentsOf: sorted.map( {$0.data}))
                 } else {
-                    results.append(contentsOf: node!.data.map({$0.data}))
+                    results.append(contentsOf: node!.data.map( {$0.data}))
                 }
             } else if node!.children.count > 0 {
                 // calculate greatest distance in each dimension from point to center of each child node
@@ -361,7 +361,7 @@ class HctTree<T: AnyObject>{
                 let decoded = node!.decode()
                 assert(decoded.count == node!.children.count)
                 var children: [(Double, BBox, HctNode<T>)] = []
-                for i in 0..<decoded.count{
+                for i in 0..<decoded.count {
                     let newNode = node!.children[i]
                     let newBox = index2box(index: decoded[i], outer: box)
                     let calculated = index6bit(center: box.center, halfsize: box.halfsize, point: newBox.center)
@@ -370,12 +370,12 @@ class HctTree<T: AnyObject>{
                     let distance = squaredDist(newBox, to)
                     children.append((distance, newBox, newNode))
                 }
-                children.sort(by:{ $0.0 < $1.0 })
+                children.sort(by: { $0.0 < $1.0 })
 
                 var ci = 0
                 var qi = 0
-                repeat{
-                    if(qi == queue.count || children[ci].0 < queue[qi].0){
+                repeat {
+                    if(qi == queue.count || children[ci].0 < queue[qi].0) {
                         queue.insert(children[ci], at:qi)
                         ci++
                     }
@@ -398,24 +398,24 @@ class HctTree<T: AnyObject>{
     }
 }
 
-class HctNode<T: AnyObject>{
+class HctNode<T: AnyObject> {
     var bit_field: UInt64 = 0
     var children: [HctNode<T>] = []
     var data: [HctItem<T>] = []
 
     func everything() -> ArraySlice<HctItem<T>> {
-        if(bit_field == 0){
+        if(bit_field == 0) {
             return data[0..<data.count]
         } else {
-            return children.map{ $0.everything() }.reduce([], +)
+            return children.map { $0.everything() }.reduce([], +)
         }
     }
 
     func subdivide(depth: Int, tree: HctTree<T>, BINSIZE: Int) {
-        let indices = data.map({ Int(tree.quickResolve(position: $0.position, at: depth)) })
+        let indices = data.map( { Int(tree.quickResolve(position: $0.position, at: depth)) })
         let pairs = zip(indices, data).sorted(by: { $0.0 < $1.0 } )
         var duplicates = 0
-        for i in 0..<pairs.count{
+        for i in 0..<pairs.count {
             let (index, item) = pairs[i]
             if bit_field & (1 << index) == 0 {
                 bit_field |= (1 << index)
@@ -428,8 +428,8 @@ class HctNode<T: AnyObject>{
         }
         data.removeAll()
 
-        for c in children{
-            if(c.data.count > BINSIZE && depth+1 < MAXDEPTH){
+        for c in children {
+            if(c.data.count > BINSIZE && depth+1 < MAXDEPTH) {
                 c.subdivide(depth: depth+1, tree: tree, BINSIZE: BINSIZE)
             }
         }
@@ -446,7 +446,7 @@ class HctNode<T: AnyObject>{
     func decode() -> [UInt8] {
         var v = bit_field
         var results: [UInt8] = []
-        while v != 0{
+        while v != 0 {
             let prev = v
             v &= v - 1; // clear the least significant bit set
             let diff = v ^ prev
@@ -461,7 +461,7 @@ class HctNode<T: AnyObject>{
     func count_bits() -> Int {
         var v = bit_field
         var c: Int = 0
-        while v != 0{
+        while v != 0 {
             v &= v - 1; // clear the least significant bit set
             c += 1
         }

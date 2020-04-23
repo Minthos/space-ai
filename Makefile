@@ -7,9 +7,12 @@ SRC = *.swift
 OBJ = *.o
 INCLUDES = -import-objc-header bithacks.h 
 
-build:
-	clang $(CLANG_ARGS) -c *.c
+
+main: $(OBJ) $(SRC)
 	swiftc $(INCLUDES) $(ARGS) $(SRC) $(OBJ)
+
+$(OBJ):
+	clang $(CLANG_ARGS) -c *.c
 
 debug:
 	clang $(CLANG_DEBUG) -c *.c
