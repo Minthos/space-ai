@@ -11,7 +11,7 @@ func spawnSpaceShip(at: Station, owner: String, size: Double, system: System){
     let ship = Ship(owner: owner, size: size, positionCartesian:at.positionCartesian, system: system)
     ships[ship.id] = ship
     system.shipsRegistry.insert(item: ship, position: ship.positionCartesian)
-    print("spawned ship size \(size) with id \(ship.id) at station with id \(at.id)")
+    print("spawned ship size \(size.pretty) with id \(ship.id) at station with id \(at.id)")
 }
 
 func main(){

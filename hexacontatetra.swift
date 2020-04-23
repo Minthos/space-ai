@@ -2,7 +2,8 @@
 // Copyright 2020 Espen Overaae
 // Public Domain
 //
-// Sparse octree with 2 levels represented per node packed in a 64-bit boolean field for a total of 64 subdivisions
+// "Sparse octree with modifications": 64 subdivisions per node instead of the usual 8.
+// The occupied subsections are encoded in a 64-bit boolean field.
 
 import Foundation
 
@@ -51,7 +52,6 @@ struct BBox{
         self.halfsize = abs(top.x - bottom.x) * 0.5
     }
    
-
     // returns a (1/4, 1/4, 1/4) size section of a bounding box.
     // Which of the 64 possible subsections is indicated by the argument "index"
     func selectQuadrant(_ index: UInt8) -> BBox{
@@ -66,30 +66,6 @@ struct BBox{
                                   center.z + offset + zindex * quartersize),
                     halfsize: eighthsize)
     }
-    /*
-    func b4p_element(center: Double, halfsize: Double, quartersize: Double, point: Double) -> Double{
-        let bottom = center - halfsize
-        let result = (point - bottom) / quartersize
-        return result.rounded(.towardZero)
-    }
-
-    func boxForPoint(_ point: Point) -> BBox {
-        assert(contains(point))
-
-        let quartersize = halfsize * 0.5
-        let eighthsize = halfsize * 0.25
-        let offset = eighthsize - halfsize
-        let xindex = b4p_element(center: center.x, halfsize: halfsize, quartersize: quartersize, point: point.x)
-        let yindex = b4p_element(center: center.y, halfsize: halfsize, quartersize: quartersize, point: point.y)
-        let zindex = b4p_element(center: center.z, halfsize: halfsize, quartersize: quartersize, point: point.z)
-        let result = BBox(center: Point(center.x + offset + xindex * quartersize,
-                                  center.y + offset + yindex * quartersize,
-                                  center.z + offset + zindex * quartersize),
-                    halfsize: eighthsize)
-
-        assert(result.contains(point))
-        return result
-    }*/
 
     func contains(_ point: Point) -> Bool{
         return( abs(point.x - center.x) < halfsize &&
@@ -115,22 +91,7 @@ struct HctItem<T: AnyObject>{
     let position: Point
 }
 
-            /*
-            let absElements = position.xyz().map({ abs($0) })
-            var extent = absElements.reduce(0, { a, b in max(a, b) })
-            extent = potimizeDouble(extent)
-            self.dims = BBox(top: Point(extent, extent, extent), bottom:(Point(-extent, -extent, -extent)))
-            */
 
-
-// TODO: complete implementation
-// TODO: optimize
-/*
-    Optimization ideas:
-    Intelligently subdivide the search space on each level to avoid unnecessary box-box intersection tests
-    Better nearest-neigbor search using priority queue (described below)
-
-*/
 class HctTree<T: AnyObject>{
     var numItems: Int = 0
     var root: HctNode<T> = HctNode<T>()
@@ -142,20 +103,8 @@ class HctTree<T: AnyObject>{
         dims.halfsize = extent
         BINSIZE = binSize
     }
-
-    func index2bit(center: Double, halfsize: Double, quartersize: Double, point: Double) -> UInt8{
-        let bottom = center - halfsize
-        let result = UInt8((point - bottom) / quartersize)
-        return result
-    }
-
-    func index6bit(center: Point, halfsize: Double, point: Point) -> UInt8{
-        let quartersize = halfsize * 0.5
-        return index2bit(center: center.x, halfsize: halfsize, quartersize: quartersize, point: point.x) |
-                index2bit(center: center.y, halfsize: halfsize, quartersize: quartersize, point: point.y) << 2 |
-                index2bit(center: center.z, halfsize: halfsize, quartersize: quartersize, point: point.z) << 4
-    }
     
+  
     // return the bit_field indices of the path leading to point for each level of the tree
     func quickResolve(_ position: Point) -> [UInt8]{
         // translate the points so that 0,0,0 is the bottom of our number range
@@ -197,31 +146,7 @@ class HctTree<T: AnyObject>{
         let z = (Int(p.z) >> (2*(MAXDEPTH - depth))) & 0x03
         return UInt8( x | y << 2 | z << 4 )
     }
-    /*
-    func resolve(position: Point, at depth: Int) -> UInt8{
-        var box = dims
-        for _ in 0..<depth {
-            box = box.boxForPoint(position)
-        }
-        if(!box.contains(position)){
-            print("index6bit: \(box) \(position)")
-        }
-        assert(box.contains(position))
-        return index6bit(center: box.center, halfsize: box.halfsize, point:position)
-    }
 
-    func resolve(_ position: Point) -> [UInt8]{
-        var rax: [UInt8] = []
-        var box = dims
-        // MAXDEPTH is 26 because Double only has 53 bits of precision. Should break out earlier if possible. (TODO)
-        for _ in 0..<MAXDEPTH {
-            let quadrant = index6bit(center: box.center, halfsize: box.halfsize, point:position)
-            rax.append(quadrant)
-            box = box.selectQuadrant(quadrant)
-        }
-        return rax
-    }
-*/
     func insert(item: T, position: Point){
         if !dims.contains(position){
             print("PANIC! attempting to insert object outside the bounds of the spatial tree: \(position)")
@@ -320,6 +245,7 @@ class HctTree<T: AnyObject>{
         }
     }
 
+    // move an item to a different position and update the tree accordingly
     func relocate(item: T, from: Point, to: Point){
         let before = numItems
         if let ship = item as? Ship{
@@ -330,19 +256,13 @@ class HctTree<T: AnyObject>{
         insert(item: item, position:to)
         assert(numItems == before)
     }
-
+    
+    // returns all the items in the tree
     func values() -> [T] {
         return root.everything().map{ $0.data }
-//        return lookup(region: dims)
     }
 
-    func indexDistance(_ from: Int, _ to: Int) -> Int {
-        let x = Int((from & 3) - to & 3)
-        let y = Int(((from >> 2) & 3) - ((to >> 2) & 3))
-        let z = Int(((from >> 4) & 3) - ((to >> 4) & 3))
-        return x * x + y * y + z * z
-    }
-
+    // very fast but if you want accurate results you must set a high cutoff and filter the results by box-point intersection
     func lookup(region: BBox, cutoff: Int) -> [T] {
         var results: [T] = []
         descend(into: root, with: dims, region: region, results: &results, cutoff: cutoff)
@@ -388,6 +308,18 @@ class HctTree<T: AnyObject>{
     This will produce all the points in the tree in order of increasing distance from the search point.
     The same algorithm works for KD trees as well.
     */
+    func index2bit(center: Double, halfsize: Double, quartersize: Double, point: Double) -> UInt8{
+        let bottom = center - halfsize
+        let result = UInt8((point - bottom) / quartersize)
+        return result
+    }
+
+    func index6bit(center: Point, halfsize: Double, point: Point) -> UInt8{
+        let quartersize = halfsize * 0.5
+        return index2bit(center: center.x, halfsize: halfsize, quartersize: quartersize, point: point.x) |
+                index2bit(center: center.y, halfsize: halfsize, quartersize: quartersize, point: point.y) << 2 |
+                index2bit(center: center.z, halfsize: halfsize, quartersize: quartersize, point: point.z) << 4
+    }
 
     // the square of the distance a point is outside a box, or 0 if it's inside
     func squaredDist(_ box: BBox, _ b: Point) -> Double {
@@ -405,7 +337,8 @@ class HctTree<T: AnyObject>{
         let z = b.z - a.z
         return x * x + y * y + z * z
     }
-
+    
+    // The k nearest neighbor algorithm is slower than making successive calls to lookup() and sorting the result by distance.
     func kNearestNeighbor(k: Int, to: Point, shouldSort: Bool = false) -> [T] {
         var queue: [(Double, BBox, HctNode<T>)] = [(0, dims, root)]
         var results: [T] = []
@@ -510,7 +443,6 @@ class HctNode<T: AnyObject>{
     // children [node, node, node]
     // decode: [0,4,12]
     // then you can zip decode with children and get something like [(0, node), (4, node), (12, node)]
-    // TODO: verify that the order of bits I described above matches what the code does, to avoid confusing maintainers (aka. future me)
     func decode() -> [UInt8] {
         var v = bit_field
         var results: [UInt8] = []

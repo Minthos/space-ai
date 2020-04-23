@@ -295,23 +295,41 @@ extension Numeric {
 
 extension Double {
     var pretty: String {
+        var s = ""
         if(self < 0.001){
             return self.scientific
         } else if(self < 1){
-            return String(format: "%.4f", self)
+            s = String(format: "%.4f", self)
         }  else if(self < 1000) {
-            return String(format: "%.2f", self)
+            s = String(format: "%.2f", self)
         }  else if(self < 1e6) {
-            return String(format: "%.2fk", self/1e3)
+            s = String(format: "%.2fk", self/1e3)
         }  else if(self < 1e9) {
-            return String(format: "%.2fM", self/1e6)
+            s = String(format: "%.2fM", self/1e6)
         }  else if(self < 1e12) {
-            return String(format: "%.2fG", self/1e9)
+            s = String(format: "%.2fG", self/1e9)
         }  else if(self < 1e15) {
-            return String(format: "%.2fT", self/1e12)
+            s = String(format: "%.2fT", self/1e12)
         } else {
             return self.scientific
         }
+        var snew = ""
+        var done = false
+        for (i, c) in s.enumerated().reversed(){
+            if(done){
+                snew.append(c)
+            } else if(c == "0"){
+                continue;
+            } else if c.isNumber {
+                done = true
+                snew.append(c)
+            } else if c == "." {
+                done = true
+            } else {
+                snew.append(c)
+            }
+        }
+        return String(snew.reversed())
     }
 }
 
@@ -673,9 +691,7 @@ class Ship:Uid{
             var roids: [Asteroid] = []
             if(self.cargo.capacity == 10){
                 roids = self.currentSystem.findNearbyAsteroids(to: location, findAtLeast: 50)
-                //let slice_roids = self.currentSystem.findNearbyAsteroids(to: location, findAtLeast: 50)
                 roid = roids.randomElement()
-                //roid = slice_roids.randomElement()?.data
                 if(roid?.precious == 0 && roid?.gas == 0){
                     roid = roids.first(where: { $0.precious > 0 }) ?? roid
                 }
@@ -685,7 +701,6 @@ class Ship:Uid{
                     location = lastMinedLocation!
                 } else {
                     roid = self.currentSystem.findNearbyAsteroids(to: location).randomElement()
-                    //roid = self.currentSystem.findNearbyAsteroids(to: location).randomElement()?.data
                 }
             }
             if roid == nil{
@@ -1032,9 +1047,7 @@ class System:CelestialObject{
         return planets.flatMap{ $0.stations + $0.moons.flatMap{ $0.stations } }
     }
 
-    //func findNearbyAsteroids(to: Point, findAtLeast: Int = 10) -> ArraySlice<HctItem<Asteroid>> {
     func findNearbyAsteroids(to: Point, findAtLeast: Int = 10) -> [Asteroid] {
-        //var results: ArraySlice<HctItem<Asteroid>> = []
         var results: [Asteroid] = []
         var range = 1e3
         while(results.count < findAtLeast && range < 2 * SYSTEM_RADIUS){
