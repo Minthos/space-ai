@@ -23,10 +23,11 @@ let MAX_STATION_DISTANCE = 1e6 * KM
 
     //"maxAsteroids": 1000000
 
-let configString = """
+let defaultConfigString = """
  {
     "usekNN": false,
     "randomSeed": 3,
+    "numTicks": 1000,
     "numGalaxies": 2,
     "maxSystems": 5,
     "maxPlanets": 40,
@@ -67,31 +68,31 @@ struct ResourceAmount: Decodable {
 }
 
 class Config: Decodable {
-    let usekNN: Bool
-    let randomSeed: Int
-    let numGalaxies: Int
-    let maxSystems: Int
-    let maxPlanets: Int
-    let maxMoons: Int
-    let asteroidResourceMultiplier: Double
-    let maxAsteroids: Int
-    let stationDefaultCapacity: Double
-    let stationDefaultModuleCapacity: Double
-    let fuelConsumption: Double
-    let movementRange: Double
-    let miningRange: Double
-    let dockingRange: Double
-    let productionRate: Double
-    let researchRate: Double
-    let shipCost: ResourceAmount
-    let droneCost: ResourceAmount
-    let stationCost: ResourceAmount
-    let factoryCost: ResourceAmount
-    let refineryCost: ResourceAmount
-    let weaponCost: ResourceAmount
-    let labCost: ResourceAmount
+    var usekNN: Bool
+    var randomSeed: Int
+    var numTicks: Int
+    var numGalaxies: Int
+    var maxSystems: Int
+    var maxPlanets: Int
+    var maxMoons: Int
+    var asteroidResourceMultiplier: Double
+    var maxAsteroids: Int
+    var stationDefaultCapacity: Double
+    var stationDefaultModuleCapacity: Double
+    var fuelConsumption: Double
+    var movementRange: Double
+    var miningRange: Double
+    var dockingRange: Double
+    var productionRate: Double
+    var researchRate: Double
+    var shipCost: ResourceAmount
+    var droneCost: ResourceAmount
+    var stationCost: ResourceAmount
+    var factoryCost: ResourceAmount
+    var refineryCost: ResourceAmount
+    var weaponCost: ResourceAmount
+    var labCost: ResourceAmount
 }
-let config = try!JSONDecoder().decode(Config.self, from:configString.data(using: .utf8)!)
 
 func planetQtyGen(max_: Int, min_: Int) -> Int {
     let a = (random() % max_)
@@ -687,11 +688,8 @@ class Ship:Uid {
     func plotMove(to: Point) -> Bool {
         let dist = distance(self.positionCartesian, to)
         if((dist * 1.0000001) > range) {
-//            let fraction = dist / range
             let fraction = range / (dist * 1.0000001)
             let remainder = 1 - fraction
-//            print("dist \(dist.pretty) / range \(range.pretty) = \(fraction.pretty)")
-//            print("remainder \(remainder.pretty) + fraction \(fraction.pretty) = \((remainder + fraction).pretty)")
             let destination = self.positionCartesian * remainder + to * fraction
             self.commandQueue.append(ShipCommand.move(destination))
             return false

@@ -14,12 +14,40 @@ func spawnSpaceShip(at: Station, owner: String, size: Double, system: System) {
     print("spawned ship size \(size.pretty) with id \(ship.id) at station with id \(at.id)")
 }
 
+let configPath = "config.json"
+var configFile: String? = nil
+if FileManager.default.fileExists(atPath: configPath) {
+    configFile = try! String(contentsOfFile: "config.json", encoding: String.Encoding.utf8)
+} else {
+    configFile = defaultConfigString
+    print("could not find config.json, using hardcoded defaults")
+}
+let config = try!JSONDecoder().decode(Config.self, from:configFile!.data(using: .utf8)!)
+
 func main() {
     ////////////////////////////// INITIALIZATION /////////////////////////////
-    var seed = config.randomSeed
-    if(CommandLine.arguments.count > 1) {
-        seed = Int(CommandLine.arguments[1]) ?? config.randomSeed
+
+
+    for arg in CommandLine.arguments {
+        let pieces = arg.split(separator:"=")
+        if pieces.count < 2 {
+            continue
+        }
+        let key = pieces[0]
+        let value = pieces[1]
+        switch key {
+        case "seed":
+            config.randomSeed = Int(String(value)) ?? config.randomSeed
+        case "ticks":
+            config.numTicks = Int(String(value)) ?? config.numTicks
+        default:
+            continue
+        }
     }
+    let seed = config.randomSeed
+    //if(CommandLine.arguments.count > 1) {
+    //    seed = Int(CommandLine.arguments[1]) ?? config.randomSeed
+    //}
     print("initializing world with seed: \(seed) at time: \(Date()) ");
     let world = Universe(seed: seed)
     world.proceduralInit()
@@ -40,7 +68,7 @@ func main() {
     ////////////////////////////// RUNLOOP ////////////////////////////////////
 
     var loop_counter: Int = 0
-    while loop_counter < 1500 {
+    while loop_counter < config.numTicks {
         for (_, ship) in ships {
             ship.tick()
         }
