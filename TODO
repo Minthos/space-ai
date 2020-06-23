@@ -1,4 +1,32 @@
 
+1. add basic combat
+2. add different weapon types
+3. test combat
+4. TBD
+?. tweak balance
+
+beams: good tracking, low damage, instant hit
+    strong vs small ships, missiles and targets at long range
+    weak vs heavy armor
+
+missiles: good tracking, high damage, delayed hit, can be shot down by beams
+    strong vs everything at close range
+    weak vs beams at long range
+
+mass drivers: poor tracking, medium damage, delayed hit
+    strong vs big ships at close range, stations at any range
+    weak vs small/fast ships and all ships at long range
+
+bombs/mines: no propulsion, stealthy, high damage
+    can be used to defend against pursuers or lobbed at big, slow targets
+
+stealth coating: makes a ship harder to detect, allowing ships to get closer before the shooting starts
+bigger ships are less stealthy
+ships using lots of energy are less stealthy
+damaged ships are less stealthy
+ships with externally mounted weapons are less stealthy
+
+
 create ship templates for simplified ship building
 templates are readonly, taking in a Ship object and computing its construction cost
 should be json serializable
