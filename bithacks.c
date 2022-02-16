@@ -1,4 +1,7 @@
-
+// Copyright: Someone on the internet probably, this looks familiar:
+// https://graphics.stanford.edu/~seander/bithacks.html#CountBitsSetParallel
+// Claiming fair use. YMMV.
+// 
 // expects a bit field with a single bit set to high
 // returns the index of that bit
 unsigned char whichBit(unsigned long long input){

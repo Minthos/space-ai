@@ -1,6 +1,6 @@
 // hexacontatetra.swift
 // Copyright 2020 Espen Overaae
-// Public Domain
+// Public Domain except where I have plagiarised
 //
 // "Sparse octree with modifications": 64 subdivisions per node instead of the usual 8.
 // The occupied subsections are encoded in a 64-bit boolean field.
@@ -105,7 +105,7 @@ class HctTree<T: AnyObject> {
     }
     
   
-    // return the bit_field indices of the path leading to point for each level of the tree
+    // return the bit_field indices of the path leading to position for each level of the tree
     func quickResolve(_ position: Point) -> [UInt8] {
         // translate the points so that 0,0,0 is the bottom of our number range
         // (assumes dims is centered on 0,0,0 as it should be)
