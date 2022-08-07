@@ -74,6 +74,7 @@ struct BBox {
     }
 
     func intersects(bbox: BBox) -> Bool {
+        // Radius isn't the right word. Suggestions welcome.
         let collisionRadius = bbox.halfsize + halfsize
         return( abs(bbox.center.x - center.x) < collisionRadius &&
                 abs(bbox.center.y - center.y) < collisionRadius &&

@@ -21,7 +21,6 @@ let MAX_STATION_DISTANCE = 1e6 * KM
 
 ////////////////////////////// CONFIG /////////////////////////////////////////
 
-    //"maxAsteroids": 1000000
 
 let defaultConfigString = """
  {
@@ -51,6 +50,7 @@ let defaultConfigString = """
     "labCost": {"minerals": 0.5, "gas": 0.3, "precious": 0.2}
 }
 """
+// De🐟able
 struct ResourceAmount: Decodable {
     var minerals: Double
     var gas: Double
@@ -344,6 +344,7 @@ struct Lazy<T> {
     init(_ lambda:  @escaping @autoclosure () -> T) { self.lambda = lambda }
 }
 
+// not thread safe.. is anything?
 class Uid {
     let id: Int
 
@@ -1135,12 +1136,18 @@ class System:CelestialObject {
         }
         return results
     }
+
 /*
     func findNearestAsteroid(to: Point) -> Asteroid? {
         var nearest: Asteroid? = nil
         let candidates = findNearbyAsteroids(to: to)
         for r in candidates {
-            if nearest == nil || distance(to, r.positionCartesian) < distance(to, nearest!.positionCartesian) {
+            
+            if nearest == nil || r.positionCartesian.distance(to: to) < nearest!.positionCartesian.distance(to: to) {
+                nearest = r
+            }
+
+            //if nearest == nil || distance(to, r.positionCartesian) < distance(to, nearest!.positionCartesian) {
                 nearest = r
             }
         }

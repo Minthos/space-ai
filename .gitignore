@@ -2,6 +2,7 @@ space-ai
 main
 default.prof*
 cachegrind.out.*
+callgrind.txt
 *.o
 *.swp
 .*
